@@ -6,12 +6,40 @@ import InputStep from './components/InputStep';
 import AnalysisDashboard from './components/AnalysisDashboard';
 import { ClientDashboard } from './components/ClientDashboard';
 import { ClientForm } from './components/ClientForm';
+import Auth from './components/Auth';
+import { auth } from './services/firebase';
+import { dbService } from './services/dbService';
+import { onAuthStateChanged, User } from 'firebase/auth';
 
 type ViewState = 'DASHBOARD' | 'CLIENT_FORM' | 'ANALYSIS';
 
 const App: React.FC = () => {
   // Global State
   const [view, setView] = useState<ViewState>('DASHBOARD');
+
+  // Auth State
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  React.useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-brand-dark flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-brand-cyan border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Auth />;
+  }
 
   // Client Management State
   const [editingClient, setEditingClient] = useState<ClientProfile | undefined>(undefined);
@@ -51,6 +79,17 @@ const App: React.FC = () => {
       try {
         const analysis = await analyzeRelationship(data);
         setResult(analysis);
+
+        // Save to DB if we have a client and user
+        if (data.clientProfile && auth.currentUser) {
+          dbService.saveAnalysis(
+            auth.currentUser.uid,
+            data.clientProfile.id,
+            analysis,
+            data
+          ).catch(err => console.error("Failed to save analysis history", err));
+        }
+
         setStep(AnalysisStep.Results);
       } catch (err) {
         setError("Failed to analyze the transcripts. Please ensure your API Key is valid and try again.");
