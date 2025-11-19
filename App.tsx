@@ -88,7 +88,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-brand-dark text-brand-white font-sans selection:bg-brand-cyan selection:text-brand-dark">
-      
+
       {/* Background Accents */}
       <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
         <div className="absolute -top-24 -left-24 w-96 h-96 bg-brand-cyan/5 rounded-full blur-3xl"></div>
@@ -96,12 +96,12 @@ const App: React.FC = () => {
       </div>
 
       <div className="relative z-10 container mx-auto px-4 py-8 min-h-screen flex flex-col">
-        
+
         <main className="flex-grow flex flex-col w-full">
-          
+
           {/* VIEW: DASHBOARD */}
           {view === 'DASHBOARD' && (
-            <ClientDashboard 
+            <ClientDashboard
               onSelectClient={handleClientSelect}
               onAddClient={() => { setEditingClient(undefined); setView('CLIENT_FORM'); }}
               onEditClient={(client) => { setEditingClient(client); setView('CLIENT_FORM'); }}
@@ -110,7 +110,7 @@ const App: React.FC = () => {
 
           {/* VIEW: CLIENT FORM */}
           {view === 'CLIENT_FORM' && (
-            <ClientForm 
+            <ClientForm
               initialData={editingClient}
               onSave={() => setView('DASHBOARD')}
               onCancel={() => setView('DASHBOARD')}
@@ -186,8 +186,8 @@ const App: React.FC = () => {
                   prefilledContext={data.clientProfile ? (
                     <div className="space-y-1">
                       <div className="flex gap-4 mb-2">
-                         <div><span className="text-brand-muted">Avg. Spend:</span> {data.clientProfile.monthlySpend}</div>
-                         <div><span className="text-brand-muted">Duration:</span> {data.clientProfile.duration}</div>
+                        <div><span className="text-brand-muted">Avg. Spend:</span> {data.clientProfile.monthlySpend}</div>
+                        <div><span className="text-brand-muted">Duration:</span> {data.clientProfile.duration}</div>
                       </div>
                       <div>
                         <span className="text-brand-muted block mb-1">Strategic Notes:</span>
@@ -212,16 +212,16 @@ const App: React.FC = () => {
               {/* RESULTS STEP */}
               {step === AnalysisStep.Results && result && (
                 <div className="w-full">
-                   <AnalysisDashboard result={result} onReset={handleReturnToDashboard} />
+                  <AnalysisDashboard result={result} data={data} onReset={handleReturnToDashboard} />
                 </div>
               )}
 
               {/* ERROR STATE */}
               {error && (
                 <div className="max-w-md mx-auto bg-red-900/20 border border-red-500/50 p-6 rounded-xl text-center mt-8">
-                    <h3 className="text-red-400 font-bold mb-2">Analysis Error</h3>
-                    <p className="text-slate-300 mb-4">{error}</p>
-                    <button onClick={() => setStep(AnalysisStep.Context)} className="text-white underline">Try Again</button>
+                  <h3 className="text-red-400 font-bold mb-2">Analysis Error</h3>
+                  <p className="text-slate-300 mb-4">{error}</p>
+                  <button onClick={() => setStep(AnalysisStep.Context)} className="text-white underline">Try Again</button>
                 </div>
               )}
             </div>

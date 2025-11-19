@@ -1,13 +1,46 @@
-import React from 'react';
-import { AnalysisResult, CriticalMoment, ActionItem } from '../types';
+import React, { useState, useRef, useEffect } from 'react';
+import { AnalysisResult, CriticalMoment, ActionItem, TranscriptData, ChatMessage } from '../types';
+import { askFollowUpQuestion } from '../services/geminiService';
 
 interface AnalysisDashboardProps {
   result: AnalysisResult;
+  data: TranscriptData;
   onReset: () => void;
 }
 
-const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, onReset }) => {
-  
+const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onReset }) => {
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [question, setQuestion] = useState('');
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [chatHistory]);
+
+  const handleAskQuestion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!question.trim() || isChatLoading) return;
+
+    const userMsg: ChatMessage = { role: 'user', content: question };
+    setChatHistory(prev => [...prev, userMsg]);
+    setQuestion('');
+    setIsChatLoading(true);
+
+    try {
+      const answer = await askFollowUpQuestion(data, result, [...chatHistory, userMsg], question);
+      setChatHistory(prev => [...prev, { role: 'assistant', content: answer }]);
+    } catch (err) {
+      setChatHistory(prev => [...prev, { role: 'assistant', content: "Sorry, I couldn't get an answer right now." }]);
+    } finally {
+      setIsChatLoading(false);
+    }
+  };
+
   const getRiskColor = (risk: string) => {
     switch (risk) {
       case 'Low': return 'text-brand-green border-brand-green/30 bg-brand-green/10';
@@ -20,7 +53,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, onReset }
 
   return (
     <div className="w-full max-w-6xl mx-auto pb-20 animate-fade-in">
-      
+
       {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 border-b border-brand-muted pb-6">
         <div>
@@ -58,14 +91,14 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, onReset }
         <div className="md:col-span-2 p-6 rounded-xl border border-brand-muted bg-brand-surface backdrop-blur-sm">
           <span className="text-xs font-bold uppercase tracking-wider text-brand-muted">Trajectory Overview</span>
           <div className="text-xl text-white mt-2 font-medium">
-             {result.bottomLine.trajectory}
+            {result.bottomLine.trajectory}
           </div>
           <div className="mt-4 flex gap-2 overflow-x-auto pb-2">
-             {Object.entries(result.trajectoryAnalysis).map(([key, val]) => (
-               <span key={key} className="px-3 py-1 rounded-full bg-brand-dark text-xs text-brand-white whitespace-nowrap border border-brand-muted">
-                 {key.replace(/([A-Z])/g, ' $1').trim()}: <span className="text-brand-cyan font-bold">{val}</span>
-               </span>
-             ))}
+            {Object.entries(result.trajectoryAnalysis).map(([key, val]) => (
+              <span key={key} className="px-3 py-1 rounded-full bg-brand-dark text-xs text-brand-white whitespace-nowrap border border-brand-muted">
+                {key.replace(/([A-Z])/g, ' $1').trim()}: <span className="text-brand-cyan font-bold">{val}</span>
+              </span>
+            ))}
           </div>
         </div>
       </div>
@@ -87,10 +120,10 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, onReset }
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        
+
         {/* Left Column: Critical Moments & Signals */}
         <div className="space-y-8">
-          
+
           {/* Critical Moments */}
           <div>
             <h3 className="text-xl font-bold text-white mb-4">Critical Moments</h3>
@@ -103,14 +136,14 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, onReset }
 
           {/* Subtle Signals */}
           <div>
-             <h3 className="text-xl font-bold text-white mb-4">Detected Signals</h3>
-             <div className="bg-brand-surface rounded-xl border border-brand-muted p-6">
-                <SignalGroup title="Language Patterns" items={result.subtleSignals.languagePatterns} color="text-blue-300" />
-                <SignalGroup title="Energy Flags" items={result.subtleSignals.energyFlags} color="text-brand-orange" />
-                <SignalGroup title="Trust Erosion" items={result.subtleSignals.trustErosion} color="text-red-300" />
-                <SignalGroup title="Financial Anxiety" items={result.subtleSignals.financialAnxiety} color="text-brand-green" />
-                <SignalGroup title="What Disappeared" items={result.subtleSignals.disappeared} color="text-brand-muted" />
-             </div>
+            <h3 className="text-xl font-bold text-white mb-4">Detected Signals</h3>
+            <div className="bg-brand-surface rounded-xl border border-brand-muted p-6">
+              <SignalGroup title="Language Patterns" items={result.subtleSignals.languagePatterns} color="text-blue-300" />
+              <SignalGroup title="Energy Flags" items={result.subtleSignals.energyFlags} color="text-brand-orange" />
+              <SignalGroup title="Trust Erosion" items={result.subtleSignals.trustErosion} color="text-red-300" />
+              <SignalGroup title="Financial Anxiety" items={result.subtleSignals.financialAnxiety} color="text-brand-green" />
+              <SignalGroup title="What Disappeared" items={result.subtleSignals.disappeared} color="text-brand-muted" />
+            </div>
           </div>
         </div>
 
@@ -125,17 +158,93 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, onReset }
         </div>
 
       </div>
-    </div>
+
+
+      {/* Chat with Analyst Section */}
+      <div className="mt-12 border-t border-brand-muted pt-8">
+        <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+          <span className="text-brand-cyan">●</span> Ask the Analyst
+        </h3>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-1">
+            <p className="text-slate-300 mb-4">
+              Need to dig deeper? Ask specific questions about the transcripts, tone, or specific moments.
+            </p>
+            <div className="bg-brand-surface/50 p-4 rounded-lg border border-brand-muted/50 text-sm text-brand-muted">
+              <p className="font-bold mb-2 text-slate-400">Try asking:</p>
+              <ul className="space-y-2 list-disc pl-4">
+                <li>"What specific words show they are frustrated?"</li>
+                <li>"Did they mention the budget in the first meeting?"</li>
+                <li>"How should I bring up the renewal?"</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="lg:col-span-2 bg-brand-surface rounded-xl border border-brand-muted flex flex-col h-[500px]">
+            <div className="flex-grow overflow-y-auto p-6 space-y-4">
+              {chatHistory.length === 0 && (
+                <div className="text-center text-brand-muted mt-20 opacity-50">
+                  <p>No messages yet. Start the conversation.</p>
+                </div>
+              )}
+              {chatHistory.map((msg, idx) => (
+                <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[80%] p-4 rounded-xl ${msg.role === 'user'
+                    ? 'bg-brand-cyan/20 text-brand-cyan border border-brand-cyan/30 rounded-tr-none'
+                    : 'bg-brand-dark text-slate-300 border border-brand-muted rounded-tl-none'
+                    }`}>
+                    <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
+                  </div>
+                </div>
+              ))}
+              {isChatLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-brand-dark text-slate-300 border border-brand-muted rounded-tl-none p-4 rounded-xl">
+                    <div className="flex gap-1">
+                      <div className="w-2 h-2 bg-brand-muted rounded-full animate-bounce"></div>
+                      <div className="w-2 h-2 bg-brand-muted rounded-full animate-bounce delay-75"></div>
+                      <div className="w-2 h-2 bg-brand-muted rounded-full animate-bounce delay-150"></div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div ref={chatEndRef} />
+            </div>
+
+            <form onSubmit={handleAskQuestion} className="p-4 border-t border-brand-muted bg-brand-dark/50 rounded-b-xl">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                  placeholder="Ask a follow-up question..."
+                  className="flex-grow bg-brand-dark border border-brand-muted rounded-lg px-4 py-3 text-white focus:outline-none focus:border-brand-cyan transition-colors"
+                  disabled={isChatLoading}
+                />
+                <button
+                  type="submit"
+                  disabled={isChatLoading || !question.trim()}
+                  className="bg-brand-cyan text-brand-dark font-bold px-6 py-3 rounded-lg hover:bg-brand-cyan/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Send
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div >
   );
 };
 
 // Helper Components for Dashboard
 
-const CriticalMomentCard: React.FC<{moment: CriticalMoment}> = ({ moment }) => (
+const CriticalMomentCard: React.FC<{ moment: CriticalMoment }> = ({ moment }) => (
   <div className="bg-brand-surface rounded-lg border border-brand-muted p-5 hover:border-brand-muted/80 transition-colors">
     <div className="flex gap-3 mb-3">
-       <div className="min-w-[3px] bg-brand-orange rounded-full opacity-70"></div>
-       <blockquote className="text-slate-300 italic font-serif text-lg">"{moment.quote}"</blockquote>
+      <div className="min-w-[3px] bg-brand-orange rounded-full opacity-70"></div>
+      <blockquote className="text-slate-300 italic font-serif text-lg">"{moment.quote}"</blockquote>
     </div>
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm mt-4">
       <div>
@@ -154,7 +263,7 @@ const CriticalMomentCard: React.FC<{moment: CriticalMoment}> = ({ moment }) => (
   </div>
 );
 
-const SignalGroup: React.FC<{title: string, items: string[], color: string}> = ({ title, items, color }) => {
+const SignalGroup: React.FC<{ title: string, items: string[], color: string }> = ({ title, items, color }) => {
   if (!items || items.length === 0) return null;
   return (
     <div className="mb-6 last:mb-0">
@@ -171,15 +280,15 @@ const SignalGroup: React.FC<{title: string, items: string[], color: string}> = (
   );
 }
 
-const ActionCard: React.FC<{action: ActionItem, index: number}> = ({ action, index }) => (
+const ActionCard: React.FC<{ action: ActionItem, index: number }> = ({ action, index }) => (
   <div className="bg-gradient-to-r from-brand-surface to-brand-dark border border-brand-muted rounded-xl p-6 relative group">
     <div className="absolute top-4 right-4 text-6xl font-bold text-brand-muted/20 -z-10 group-hover:text-brand-cyan/10 transition-colors">
       {index + 1}
     </div>
     <h4 className="text-lg font-bold text-brand-cyan mb-2">{action.action}</h4>
-    
+
     <div className="mb-4">
-       <p className="text-sm text-slate-300">{action.why}</p>
+      <p className="text-sm text-slate-300">{action.why}</p>
     </div>
 
     <div className="bg-brand-dark rounded-lg p-4 border border-brand-muted/50">

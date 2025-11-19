@@ -69,3 +69,8 @@ export interface AnalysisResult {
   };
   actionPlan: ActionItem[];
 }
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}

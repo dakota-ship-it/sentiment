@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { TranscriptData, AnalysisResult } from "../types";
+import { TranscriptData, AnalysisResult, ChatMessage } from "../types";
 
 const SYSTEM_INSTRUCTION = `
 You are a client relationship analyst specializing in detecting subtle emotional and psychological signals that indicate relationship health in agency-client relationships. 
@@ -78,13 +78,13 @@ const ANALYSIS_SCHEMA = {
 export const analyzeRelationship = async (data: TranscriptData): Promise<AnalysisResult> => {
   try {
     const apiKey = process.env.API_KEY;
-    
+
     if (!apiKey) {
       throw new Error("API key not configured. Please set GEMINI_API_KEY in your .env.local file.");
     }
-    
+
     const ai = new GoogleGenAI({ apiKey });
-    
+
     // Build Context String
     let contextSection = "CONTEXT & BACKGROUND:\n";
     if (data.clientProfile) {
@@ -132,6 +132,69 @@ export const analyzeRelationship = async (data: TranscriptData): Promise<Analysi
     return result;
   } catch (error) {
     console.error("Analysis failed:", error);
+    throw error;
+  }
+};
+
+export const askFollowUpQuestion = async (
+  data: TranscriptData,
+  analysisResult: AnalysisResult,
+  history: ChatMessage[],
+  question: string
+): Promise<string> => {
+  try {
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) throw new Error("API key not configured");
+
+    const ai = new GoogleGenAI({ apiKey });
+
+    // Build context similar to analysis
+    let contextSection = "CONTEXT & BACKGROUND:\n";
+    if (data.clientProfile) {
+      contextSection += `Client Name: ${data.clientProfile.name}\n`;
+      contextSection += `Average Spend: ${data.clientProfile.monthlySpend}\n`;
+      contextSection += `Relationship Duration: ${data.clientProfile.duration}\n`;
+      contextSection += `Client Profile Notes: ${data.clientProfile.notes}\n`;
+    }
+    contextSection += `Additional User Notes: ${data.context || "None provided."}\n`;
+
+    const promptText = `
+      You are an expert client relationship analyst. You have just analyzed a set of meeting transcripts and provided a report.
+      Now the user is asking a follow-up question to dig deeper.
+      
+      HERE IS THE DATA YOU ANALYZED:
+      ${contextSection}
+      
+      TRANSCRIPT 1 (OLDEST): ${data.oldest}
+      TRANSCRIPT 2 (MIDDLE): ${data.middle}
+      TRANSCRIPT 3 (RECENT): ${data.recent}
+      
+      HERE IS YOUR PREVIOUS ANALYSIS SUMMARY:
+      - Trajectory: ${analysisResult.bottomLine.trajectory}
+      - Churn Risk: ${analysisResult.bottomLine.churnRisk}
+      - Real Issue: ${analysisResult.bottomLine.whatsReallyGoingOn}
+      
+      CONVERSATION HISTORY:
+      ${history.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n')}
+      
+      USER QUESTION: "${question}"
+      
+      Answer the user's question directly, citing specific quotes or patterns from the transcripts if possible. 
+      Be helpful, insightful, and keep the "relationship psychologist" persona. 
+      Keep your answer concise (under 150 words) unless asked for a detailed breakdown.
+    `;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: promptText,
+      config: {
+        temperature: 0.5,
+      },
+    });
+
+    return response.text || "I couldn't generate a response.";
+  } catch (error) {
+    console.error("Chat failed:", error);
     throw error;
   }
 };
