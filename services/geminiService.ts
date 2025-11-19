@@ -1,4 +1,5 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Schema } from "@google/genai";
+import { Type } from "@google/genai";
 import { TranscriptData, AnalysisResult, ChatMessage } from "../types";
 
 const SYSTEM_INSTRUCTION = `
@@ -11,62 +12,62 @@ Analyze the trajectory across these three points in time.
 Be direct, honest, and psychological in your assessment. Don't sugarcoat.
 `;
 
-const ANALYSIS_SCHEMA = {
-  type: "object" as const,
+const ANALYSIS_SCHEMA: Schema = {
+  type: Type.OBJECT,
   properties: {
     trajectoryAnalysis: {
-      type: "object" as const,
+      type: Type.OBJECT,
       properties: {
-        engagement: { type: "string" as const, enum: ["Increasing", "Stable", "Declining"] },
-        meetingLength: { type: "string" as const, enum: ["Shorter", "Stable", "Longer"] },
-        energy: { type: "string" as const, enum: ["Rising", "Falling", "Flat"] },
-        futureTalk: { type: "string" as const, enum: ["More", "Less", "Same"] },
+        engagement: { type: Type.STRING, enum: ["Increasing", "Stable", "Declining"] },
+        meetingLength: { type: Type.STRING, enum: ["Shorter", "Stable", "Longer"] },
+        energy: { type: Type.STRING, enum: ["Rising", "Falling", "Flat"] },
+        futureTalk: { type: Type.STRING, enum: ["More", "Less", "Same"] },
       },
       required: ["engagement", "meetingLength", "energy", "futureTalk"],
     },
     subtleSignals: {
-      type: "object" as const,
+      type: Type.OBJECT,
       properties: {
-        languagePatterns: { type: "array" as const, items: { type: "string" as const }, description: "Shifts in commitment, ownership, or hedging." },
-        energyFlags: { type: "array" as const, items: { type: "string" as const }, description: "Tone, answers, multitasking signals." },
-        trustErosion: { type: "array" as const, items: { type: "string" as const }, description: "New decision makers, comparisons, questioning agreements." },
-        financialAnxiety: { type: "array" as const, items: { type: "string" as const }, description: "Budget mentions, pressure indicators." },
-        disappeared: { type: "array" as const, items: { type: "string" as const }, description: "Strategic talks, sharing wins, future planning." },
+        languagePatterns: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Shifts in commitment, ownership, or hedging." },
+        energyFlags: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Tone, answers, multitasking signals." },
+        trustErosion: { type: Type.ARRAY, items: { type: Type.STRING }, description: "New decision makers, comparisons, questioning agreements." },
+        financialAnxiety: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Budget mentions, pressure indicators." },
+        disappeared: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Strategic talks, sharing wins, future planning." },
       },
       required: ["languagePatterns", "energyFlags", "trustErosion", "financialAnxiety", "disappeared"],
     },
     criticalMoments: {
-      type: "array" as const,
+      type: Type.ARRAY,
       items: {
-        type: "object" as const,
+        type: Type.OBJECT,
         properties: {
-          quote: { type: "string" as const },
-          surfaceRead: { type: "string" as const, description: "What a low-EQ person thinks this means." },
-          deepMeaning: { type: "string" as const, description: "The real signal." },
-          implication: { type: "string" as const, description: "Why it matters." },
+          quote: { type: Type.STRING },
+          surfaceRead: { type: Type.STRING, description: "What a low-EQ person thinks this means." },
+          deepMeaning: { type: Type.STRING, description: "The real signal." },
+          implication: { type: Type.STRING, description: "Why it matters." },
         },
         required: ["quote", "surfaceRead", "deepMeaning", "implication"],
       },
     },
     bottomLine: {
-      type: "object" as const,
+      type: Type.OBJECT,
       properties: {
-        trajectory: { type: "string" as const, enum: ["Strengthening", "Stable", "Declining", "Critical"] },
-        churnRisk: { type: "string" as const, enum: ["Low", "Medium", "High", "Immediate"] },
-        clientConfidence: { type: "integer" as const, description: "Score from 1 to 10" },
-        whatsReallyGoingOn: { type: "string" as const, description: "One sentence - what are they worried about that they're not saying?" },
-        realReasonIfChurn: { type: "string" as const, description: "Strip away polite excuses - what's the actual issue?" },
+        trajectory: { type: Type.STRING, enum: ["Strengthening", "Stable", "Declining", "Critical"] },
+        churnRisk: { type: Type.STRING, enum: ["Low", "Medium", "High", "Immediate"] },
+        clientConfidence: { type: Type.INTEGER, description: "Score from 1 to 10" },
+        whatsReallyGoingOn: { type: Type.STRING, description: "One sentence - what are they worried about that they're not saying?" },
+        realReasonIfChurn: { type: Type.STRING, description: "Strip away polite excuses - what's the actual issue?" },
       },
       required: ["trajectory", "churnRisk", "clientConfidence", "whatsReallyGoingOn", "realReasonIfChurn"],
     },
     actionPlan: {
-      type: "array" as const,
+      type: Type.ARRAY,
       items: {
-        type: "object" as const,
+        type: Type.OBJECT,
         properties: {
-          action: { type: "string" as const },
-          why: { type: "string" as const },
-          how: { type: "string" as const, description: "Exact language/approach to use." },
+          action: { type: Type.STRING },
+          why: { type: Type.STRING },
+          how: { type: Type.STRING, description: "Exact language/approach to use." },
         },
         required: ["action", "why", "how"],
       },
