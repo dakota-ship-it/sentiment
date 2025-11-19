@@ -34,12 +34,13 @@ export const dbService = {
     // Get all clients for a specific user
     getClients: async (userId: string): Promise<ClientProfile[]> => {
         try {
-            const q = query(clientsRef, where("ownerId", "==", userId), orderBy("createdAt", "desc"));
+            const q = query(clientsRef, where("ownerId", "==", userId));
             const snapshot = await getDocs(q);
             return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ClientProfile));
         } catch (error) {
             console.error("Error fetching clients:", error);
-            throw error;
+            // Return empty array instead of throwing to prevent blank screen
+            return [];
         }
     },
 
