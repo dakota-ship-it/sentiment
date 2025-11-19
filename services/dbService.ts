@@ -94,14 +94,15 @@ export const dbService = {
             const q = query(
                 analysesRef,
                 where("clientId", "==", clientId),
-                orderBy("date", "desc"),
                 limit(5)
             );
             const snapshot = await getDocs(q);
-            return snapshot.docs.map(doc => doc.data() as DBAnalysis);
+            // Sort in memory instead of in query
+            const results = snapshot.docs.map(doc => doc.data() as DBAnalysis);
+            return results.sort((a, b) => b.date.toMillis() - a.date.toMillis());
         } catch (error) {
             console.error("Error fetching history:", error);
-            throw error;
+            return [];
         }
     }
 };
