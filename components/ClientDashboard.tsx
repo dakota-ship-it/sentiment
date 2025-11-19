@@ -143,7 +143,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-brand-surface border border-brand-muted rounded-xl p-6 max-w-md w-full">
             <h3 className="text-xl font-bold text-white mb-4">Select Client to Analyze</h3>
-            <div className="space-y-2 max-h-96 overflow-y-auto">
+            <div className="space-y-2 max-h-96 overflow-y-auto mb-4">
               {clients.map(client => (
                 <button
                   key={client.id}
@@ -158,12 +158,23 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
                 </button>
               ))}
             </div>
-            <button
-              onClick={() => setShowClientSelector(false)}
-              className="mt-4 w-full py-2 text-brand-muted hover:text-white transition-colors"
-            >
-              Cancel
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowClientSelector(false);
+                  onAddClient();
+                }}
+                className="flex-1 py-2 px-4 bg-brand-cyan/10 border border-brand-cyan text-brand-cyan hover:bg-brand-cyan hover:text-brand-dark rounded-lg transition-all font-medium"
+              >
+                + Add New Client
+              </button>
+              <button
+                onClick={() => setShowClientSelector(false)}
+                className="flex-1 py-2 text-brand-muted hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
