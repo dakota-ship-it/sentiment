@@ -13,6 +13,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onR
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [question, setQuestion] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -42,6 +43,109 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onR
     }
   };
 
+  const exportToMarkdown = () => {
+    const clientName = data.clientProfile?.name || 'Client';
+    const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+    let markdown = `# Relationship Diagnosis: ${clientName}\n`;
+    markdown += `*Analysis Date: ${date}*\n\n`;
+    markdown += `---\n\n`;
+
+    // Top-level metrics
+    markdown += `## Summary\n\n`;
+    markdown += `- **Churn Risk:** ${result.bottomLine.churnRisk}\n`;
+    markdown += `- **Client Confidence:** ${result.bottomLine.clientConfidence}/10\n`;
+    markdown += `- **Trajectory:** ${result.bottomLine.trajectory}\n\n`;
+
+    // Trajectory Analysis
+    markdown += `### Trajectory Indicators\n`;
+    Object.entries(result.trajectoryAnalysis).forEach(([key, value]) => {
+      const label = key.replace(/([A-Z])/g, ' $1').trim();
+      markdown += `- **${label}:** ${value}\n`;
+    });
+    markdown += `\n`;
+
+    // What's Really Going On
+    markdown += `## What's Really Going On\n\n`;
+    markdown += `> ${result.bottomLine.whatsReallyGoingOn}\n\n`;
+    markdown += `**The Real Breakup Reason (If ignored):** ${result.bottomLine.realReasonIfChurn}\n\n`;
+
+    // Critical Moments
+    markdown += `## Critical Moments\n\n`;
+    result.criticalMoments.forEach((moment, idx) => {
+      markdown += `### ${idx + 1}. "${moment.quote}"\n\n`;
+      markdown += `- **Surface Read:** ${moment.surfaceRead}\n`;
+      markdown += `- **Deep Meaning:** ${moment.deepMeaning}\n`;
+      markdown += `- **Implication:** ${moment.implication}\n\n`;
+    });
+
+    // Detected Signals
+    markdown += `## Detected Signals\n\n`;
+
+    if (result.subtleSignals.languagePatterns.length > 0) {
+      markdown += `### Language Patterns\n`;
+      result.subtleSignals.languagePatterns.forEach(item => {
+        markdown += `- ${item}\n`;
+      });
+      markdown += `\n`;
+    }
+
+    if (result.subtleSignals.energyFlags.length > 0) {
+      markdown += `### Energy Flags\n`;
+      result.subtleSignals.energyFlags.forEach(item => {
+        markdown += `- ${item}\n`;
+      });
+      markdown += `\n`;
+    }
+
+    if (result.subtleSignals.trustErosion.length > 0) {
+      markdown += `### Trust Erosion\n`;
+      result.subtleSignals.trustErosion.forEach(item => {
+        markdown += `- ${item}\n`;
+      });
+      markdown += `\n`;
+    }
+
+    if (result.subtleSignals.financialAnxiety.length > 0) {
+      markdown += `### Financial Anxiety\n`;
+      result.subtleSignals.financialAnxiety.forEach(item => {
+        markdown += `- ${item}\n`;
+      });
+      markdown += `\n`;
+    }
+
+    if (result.subtleSignals.disappeared.length > 0) {
+      markdown += `### What Disappeared\n`;
+      result.subtleSignals.disappeared.forEach(item => {
+        markdown += `- ${item}\n`;
+      });
+      markdown += `\n`;
+    }
+
+    // Action Plan
+    markdown += `## Action Plan\n\n`;
+    result.actionPlan.forEach((action, idx) => {
+      markdown += `### ${idx + 1}. ${action.action}\n\n`;
+      markdown += `**Why:** ${action.why}\n\n`;
+      markdown += `**How to say it / Do it:**\n`;
+      markdown += `> ${action.how}\n\n`;
+    });
+
+    return markdown;
+  };
+
+  const handleExport = async () => {
+    try {
+      const markdown = exportToMarkdown();
+      await navigator.clipboard.writeText(markdown);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      alert('Failed to copy to clipboard. Please try again.');
+    }
+  };
+
   const getRiskColor = (risk: string) => {
     switch (risk) {
       case 'Low': return 'text-brand-green border-brand-green/30 bg-brand-green/10';
@@ -65,6 +169,26 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onR
           <p className="text-brand-muted font-mono text-sm">SENTIMENT AI ANALYSIS</p>
         </div>
         <div className="flex gap-3 mt-4 md:mt-0">
+          <button
+            onClick={handleExport}
+            className="text-sm px-4 py-2 bg-brand-green border border-brand-green text-brand-dark hover:bg-brand-green/90 rounded-lg transition-all font-medium flex items-center gap-2"
+          >
+            {copySuccess ? (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Copied!
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                Export to Notion
+              </>
+            )}
+          </button>
           {onNewAnalysis && data.clientProfile && (
             <button
               onClick={onNewAnalysis}
