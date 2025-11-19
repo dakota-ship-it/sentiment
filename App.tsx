@@ -60,16 +60,47 @@ const App: React.FC = () => {
     setData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleClientSelect = (client: ClientProfile) => {
-    setData({
-      oldest: '',
-      middle: '',
-      recent: '',
-      context: '', // We can leave this empty as clientProfile is attached
-      clientProfile: client
-    });
-    setView('ANALYSIS');
-    setStep(AnalysisStep.OldestTranscript); // Skip Intro
+  const handleClientSelect = async (client: ClientProfile) => {
+    console.log("Client selected:", client.name, client.id);
+    // Try to load the most recent analysis for this client
+    try {
+      const history = await dbService.getAnalysisHistory(client.id);
+      console.log("Analysis history loaded:", history.length, "items");
+
+      if (history.length > 0) {
+        // Show the most recent analysis
+        const mostRecent = history[0];
+        console.log("Showing most recent analysis from", mostRecent.date);
+        setData(mostRecent.transcriptData);
+        setResult(mostRecent.result);
+        setView('ANALYSIS');
+        setStep(AnalysisStep.Results);
+      } else {
+        console.log("No previous analysis found, starting new one");
+        // No previous analysis, start a new one
+        setData({
+          oldest: '',
+          middle: '',
+          recent: '',
+          context: '',
+          clientProfile: client
+        });
+        setView('ANALYSIS');
+        setStep(AnalysisStep.OldestTranscript);
+      }
+    } catch (error) {
+      console.error("Failed to load analysis history", error);
+      // Fallback to new analysis
+      setData({
+        oldest: '',
+        middle: '',
+        recent: '',
+        context: '',
+        clientProfile: client
+      });
+      setView('ANALYSIS');
+      setStep(AnalysisStep.OldestTranscript);
+    }
   };
 
   const handleNext = async () => {
