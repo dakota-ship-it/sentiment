@@ -125,6 +125,21 @@ const App: React.FC = () => {
     setView('DASHBOARD');
   };
 
+  const handleNewAnalysis = () => {
+    // Keep the client profile but clear transcripts and results
+    if (data.clientProfile) {
+      setData({
+        oldest: '',
+        middle: '',
+        recent: '',
+        context: '',
+        clientProfile: data.clientProfile
+      });
+      setResult(null);
+      setStep(AnalysisStep.OldestTranscript);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-brand-dark text-brand-white font-sans selection:bg-brand-cyan selection:text-brand-dark">
 
@@ -251,7 +266,12 @@ const App: React.FC = () => {
               {/* RESULTS STEP */}
               {step === AnalysisStep.Results && result && (
                 <div className="w-full">
-                  <AnalysisDashboard result={result} data={data} onReset={handleReturnToDashboard} />
+                  <AnalysisDashboard
+                    result={result}
+                    data={data}
+                    onReset={handleReturnToDashboard}
+                    onNewAnalysis={handleNewAnalysis}
+                  />
                 </div>
               )}
 

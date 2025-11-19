@@ -6,9 +6,10 @@ interface AnalysisDashboardProps {
   result: AnalysisResult;
   data: TranscriptData;
   onReset: () => void;
+  onNewAnalysis?: () => void;
 }
 
-const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onReset }) => {
+const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onReset, onNewAnalysis }) => {
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [question, setQuestion] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
@@ -52,7 +53,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onR
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto pb-20 animate-fade-in">
+    <div className="w-full max-w-7xl mx-auto pb-20 animate-fade-in">
 
       {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 border-b border-brand-muted pb-6">
@@ -63,9 +64,19 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onR
           <h1 className="text-3xl font-bold text-white mb-1">Relationship Diagnosis</h1>
           <p className="text-brand-muted font-mono text-sm">SENTIMENT AI ANALYSIS</p>
         </div>
-        <button onClick={onReset} className="mt-4 md:mt-0 text-sm text-brand-cyan hover:text-white underline transition-colors">
-          Analyze Another Client
-        </button>
+        <div className="flex gap-3 mt-4 md:mt-0">
+          {onNewAnalysis && data.clientProfile && (
+            <button
+              onClick={onNewAnalysis}
+              className="text-sm px-4 py-2 bg-brand-surface border border-brand-cyan text-brand-cyan hover:bg-brand-cyan hover:text-brand-dark rounded-lg transition-all font-medium"
+            >
+              Run New Analysis
+            </button>
+          )}
+          <button onClick={onReset} className="text-sm text-brand-cyan hover:text-white underline transition-colors">
+            Analyze Another Client
+          </button>
+        </div>
       </div>
 
       {/* Top-Level Metrics Grid */}
