@@ -156,18 +156,64 @@ const App: React.FC = () => {
     setView('DASHBOARD');
   };
 
-  const handleNewAnalysis = () => {
-    // Keep the client profile but clear transcripts and results
+  const handleNewAnalysis = async () => {
+    // For incremental analysis: use previous transcripts as baseline
     if (data.clientProfile) {
-      setData({
-        oldest: '',
-        middle: '',
-        recent: '',
-        context: '',
-        clientProfile: data.clientProfile
-      });
-      setResult(null);
-      setStep(AnalysisStep.OldestTranscript);
+      try {
+        const history = await dbService.getAnalysisHistory(data.clientProfile.id);
+
+        if (history.length >= 2) {
+          // Use the 2 most recent transcripts as oldest and middle
+          const prev1 = history[0].transcriptData;
+          const prev2 = history[1].transcriptData;
+
+          setData({
+            oldest: prev1.middle || prev2.recent || '', // Use middle from last analysis
+            middle: prev1.recent || '', // Use recent from last analysis
+            recent: '', // User will enter the new one
+            context: '',
+            clientProfile: data.clientProfile
+          });
+          setResult(null);
+          setStep(AnalysisStep.RecentTranscript); // Skip to just entering the new transcript
+        } else if (history.length === 1) {
+          // Only 1 previous analysis, use its transcripts
+          const prev = history[0].transcriptData;
+
+          setData({
+            oldest: prev.middle || '',
+            middle: prev.recent || '',
+            recent: '',
+            context: '',
+            clientProfile: data.clientProfile
+          });
+          setResult(null);
+          setStep(AnalysisStep.RecentTranscript);
+        } else {
+          // No history, start from scratch
+          setData({
+            oldest: '',
+            middle: '',
+            recent: '',
+            context: '',
+            clientProfile: data.clientProfile
+          });
+          setResult(null);
+          setStep(AnalysisStep.OldestTranscript);
+        }
+      } catch (error) {
+        console.error("Failed to load history for new analysis", error);
+        // Fallback to full analysis
+        setData({
+          oldest: '',
+          middle: '',
+          recent: '',
+          context: '',
+          clientProfile: data.clientProfile
+        });
+        setResult(null);
+        setStep(AnalysisStep.OldestTranscript);
+      }
     }
   };
 
@@ -247,13 +293,25 @@ const App: React.FC = () => {
 
               {step === AnalysisStep.RecentTranscript && (
                 <InputStep
-                  title="The Current State"
-                  description="Paste the most recent meeting transcript. This reveals where they are right now."
+                  title={data.oldest && data.middle ? "Add Latest Transcript (Incremental Update)" : "The Current State"}
+                  description={data.oldest && data.middle
+                    ? "Enter only the newest transcript. We'll use your previous transcripts for comparison."
+                    : "Paste the most recent meeting transcript. This reveals where they are right now."}
                   placeholder="Paste transcript text here..."
                   value={data.recent}
                   onChange={(val) => updateData('recent', val)}
                   onNext={handleNext}
                   onBack={handleBack}
+                  prefilledContext={data.oldest && data.middle ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-brand-cyan text-xs font-bold">
+                        <span>✓</span> Using previous transcripts for baseline comparison
+                      </div>
+                      <div className="text-xs text-brand-muted">
+                        This analysis will compare the new transcript against your 2 most recent meetings.
+                      </div>
+                    </div>
+                  ) : undefined}
                 />
               )}
 
