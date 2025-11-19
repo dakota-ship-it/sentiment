@@ -16,20 +16,32 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
   onEditClient,
 }) => {
   const [clients, setClients] = useState<ClientProfile[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadClients = async () => {
       if (auth.currentUser) {
         try {
+          console.log("Loading clients for user:", auth.currentUser.uid);
           const data = await dbService.getClients(auth.currentUser.uid);
+          console.log("Loaded clients:", data);
           setClients(data);
         } catch (error) {
           console.error("Failed to load clients", error);
         }
       }
+      setLoading(false);
     };
     loadClients();
   }, []);
+
+  if (loading) {
+    return (
+      <div className="w-full max-w-6xl mx-auto flex items-center justify-center py-20">
+        <div className="w-8 h-8 border-2 border-brand-cyan border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   const handleDelete = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
