@@ -1,0 +1,18 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user has AdClass email
+    function isAdClassUser() {
+      return request.auth != null && 
+             request.auth.token.email.matches('.*@adclass[.].*');
+    }
+    
+    match /clients/{clientId} {
+      allow read, write, create, delete: if isAdClassUser();
+    }
+    
+    match /analyses/{analysisId} {
+      allow read, write, create, delete: if isAdClassUser();
+    }
+  }
+}

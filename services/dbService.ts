@@ -31,11 +31,10 @@ interface DBAnalysis {
 }
 
 export const dbService = {
-    // Get all clients for a specific user
-    getClients: async (userId: string): Promise<ClientProfile[]> => {
+    // Get all clients (shared across organization)
+    getClients: async (): Promise<ClientProfile[]> => {
         try {
-            const q = query(clientsRef, where("ownerId", "==", userId));
-            const snapshot = await getDocs(q);
+            const snapshot = await getDocs(clientsRef);
             return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ClientProfile));
         } catch (error) {
             console.error("Error fetching clients:", error);

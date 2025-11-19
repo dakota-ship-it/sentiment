@@ -20,15 +20,13 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
 
   useEffect(() => {
     const loadClients = async () => {
-      if (auth.currentUser) {
-        try {
-          console.log("Loading clients for user:", auth.currentUser.uid);
-          const data = await dbService.getClients(auth.currentUser.uid);
-          console.log("Loaded clients:", data);
-          setClients(data);
-        } catch (error) {
-          console.error("Failed to load clients", error);
-        }
+      try {
+        console.log("Loading all clients for organization");
+        const data = await dbService.getClients();
+        console.log("Loaded clients:", data);
+        setClients(data);
+      } catch (error) {
+        console.error("Failed to load clients", error);
       }
       setLoading(false);
     };
