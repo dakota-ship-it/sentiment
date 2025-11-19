@@ -14,12 +14,26 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 type ViewState = 'DASHBOARD' | 'CLIENT_FORM' | 'ANALYSIS';
 
 const App: React.FC = () => {
+  // Auth State - MUST be first
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
   // Global State
   const [view, setView] = useState<ViewState>('DASHBOARD');
 
-  // Auth State
-  const [user, setUser] = useState<User | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  // Client Management State
+  const [editingClient, setEditingClient] = useState<ClientProfile | undefined>(undefined);
+
+  // Analysis State
+  const [step, setStep] = useState<AnalysisStep>(AnalysisStep.Intro);
+  const [data, setData] = useState<TranscriptData>({
+    oldest: '',
+    middle: '',
+    recent: '',
+    context: ''
+  });
+  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -40,20 +54,6 @@ const App: React.FC = () => {
   if (!user) {
     return <Auth />;
   }
-
-  // Client Management State
-  const [editingClient, setEditingClient] = useState<ClientProfile | undefined>(undefined);
-
-  // Analysis State
-  const [step, setStep] = useState<AnalysisStep>(AnalysisStep.Intro);
-  const [data, setData] = useState<TranscriptData>({
-    oldest: '',
-    middle: '',
-    recent: '',
-    context: ''
-  });
-  const [result, setResult] = useState<AnalysisResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   // Actions
   const updateData = (field: keyof TranscriptData, value: string) => {
