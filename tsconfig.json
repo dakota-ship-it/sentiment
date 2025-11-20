@@ -24,7 +24,15 @@
     ]
   },
   "include": [
-    "**/*.ts",
-    "**/*.tsx"
+    "*.ts",
+    "*.tsx",
+    "services/**/*.ts",
+    "components/**/*.tsx",
+    "index.tsx",
+    "types.ts",
+    "vite.config.ts"
+  ],
+  "exclude": [
+    "functions/**/*"
   ]
 }

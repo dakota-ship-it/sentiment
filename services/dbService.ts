@@ -161,9 +161,9 @@ export const dbService = {
     setClientMapping: async (mapping: ClientMeetingMapping): Promise<void> => {
         try {
             const docRef = doc(db, "client_mappings", mapping.clientId);
-            await updateDoc(docRef, mapping).catch(async () => {
+            await updateDoc(docRef, mapping as any).catch(async () => {
                 // If document doesn't exist, create it
-                await setDoc(docRef, mapping);
+                await setDoc(docRef, mapping as any);
             });
         } catch (error) {
             console.error("Error setting client mapping:", error);
@@ -190,9 +190,9 @@ export const dbService = {
     setNotificationPreferences: async (prefs: NotificationPreferences): Promise<void> => {
         try {
             const docRef = doc(db, "notification_preferences", prefs.clientId);
-            await updateDoc(docRef, prefs).catch(async () => {
+            await updateDoc(docRef, prefs as any).catch(async () => {
                 // If document doesn't exist, create it
-                await setDoc(docRef, prefs);
+                await setDoc(docRef, prefs as any);
             });
         } catch (error) {
             console.error("Error setting notification preferences:", error);
