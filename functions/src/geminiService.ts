@@ -1,4 +1,4 @@
-import { GoogleGenAI, Schema, Type } from "@google/genai";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
 const SYSTEM_INSTRUCTION = `
 You are a client relationship analyst specializing in detecting subtle emotional and psychological signals that indicate relationship health in agency-client relationships.
@@ -10,62 +10,62 @@ Analyze the trajectory across these three points in time.
 Be direct, honest, and psychological in your assessment. Don't sugarcoat.
 `;
 
-const ANALYSIS_SCHEMA: Schema = {
-  type: Type.OBJECT,
+const ANALYSIS_SCHEMA = {
+  type: SchemaType.OBJECT,
   properties: {
     trajectoryAnalysis: {
-      type: Type.OBJECT,
+      type: SchemaType.OBJECT,
       properties: {
-        engagement: { type: Type.STRING, enum: ["Increasing", "Stable", "Declining"] },
-        meetingLength: { type: Type.STRING, enum: ["Shorter", "Stable", "Longer"] },
-        energy: { type: Type.STRING, enum: ["Rising", "Falling", "Flat"] },
-        futureTalk: { type: Type.STRING, enum: ["More", "Less", "Same"] },
+        engagement: { type: SchemaType.STRING, enum: ["Increasing", "Stable", "Declining"] },
+        meetingLength: { type: SchemaType.STRING, enum: ["Shorter", "Stable", "Longer"] },
+        energy: { type: SchemaType.STRING, enum: ["Rising", "Falling", "Flat"] },
+        futureTalk: { type: SchemaType.STRING, enum: ["More", "Less", "Same"] },
       },
       required: ["engagement", "meetingLength", "energy", "futureTalk"],
     },
     subtleSignals: {
-      type: Type.OBJECT,
+      type: SchemaType.OBJECT,
       properties: {
-        languagePatterns: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Shifts in commitment, ownership, or hedging." },
-        energyFlags: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Tone, answers, multitasking signals." },
-        trustErosion: { type: Type.ARRAY, items: { type: Type.STRING }, description: "New decision makers, comparisons, questioning agreements." },
-        financialAnxiety: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Budget mentions, pressure indicators." },
-        disappeared: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Strategic talks, sharing wins, future planning." },
+        languagePatterns: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "Shifts in commitment, ownership, or hedging." },
+        energyFlags: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "Tone, answers, multitasking signals." },
+        trustErosion: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "New decision makers, comparisons, questioning agreements." },
+        financialAnxiety: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "Budget mentions, pressure indicators." },
+        disappeared: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "Strategic talks, sharing wins, future planning." },
       },
       required: ["languagePatterns", "energyFlags", "trustErosion", "financialAnxiety", "disappeared"],
     },
     criticalMoments: {
-      type: Type.ARRAY,
+      type: SchemaType.ARRAY,
       items: {
-        type: Type.OBJECT,
+        type: SchemaType.OBJECT,
         properties: {
-          quote: { type: Type.STRING },
-          surfaceRead: { type: Type.STRING, description: "What a low-EQ person thinks this means." },
-          deepMeaning: { type: Type.STRING, description: "The real signal." },
-          implication: { type: Type.STRING, description: "Why it matters." },
+          quote: { type: SchemaType.STRING },
+          surfaceRead: { type: SchemaType.STRING, description: "What a low-EQ person thinks this means." },
+          deepMeaning: { type: SchemaType.STRING, description: "The real signal." },
+          implication: { type: SchemaType.STRING, description: "Why it matters." },
         },
         required: ["quote", "surfaceRead", "deepMeaning", "implication"],
       },
     },
     bottomLine: {
-      type: Type.OBJECT,
+      type: SchemaType.OBJECT,
       properties: {
-        trajectory: { type: Type.STRING, enum: ["Strengthening", "Stable", "Declining", "Critical"] },
-        churnRisk: { type: Type.STRING, enum: ["Low", "Medium", "High", "Immediate"] },
-        clientConfidence: { type: Type.INTEGER, description: "Score from 1 to 10" },
-        whatsReallyGoingOn: { type: Type.STRING, description: "One sentence - what are they worried about that they're not saying?" },
-        realReasonIfChurn: { type: Type.STRING, description: "Strip away polite excuses - what's the actual issue?" },
+        trajectory: { type: SchemaType.STRING, enum: ["Strengthening", "Stable", "Declining", "Critical"] },
+        churnRisk: { type: SchemaType.STRING, enum: ["Low", "Medium", "High", "Immediate"] },
+        clientConfidence: { type: SchemaType.INTEGER, description: "Score from 1 to 10" },
+        whatsReallyGoingOn: { type: SchemaType.STRING, description: "One sentence - what are they worried about that they're not saying?" },
+        realReasonIfChurn: { type: SchemaType.STRING, description: "Strip away polite excuses - what's the actual issue?" },
       },
       required: ["trajectory", "churnRisk", "clientConfidence", "whatsReallyGoingOn", "realReasonIfChurn"],
     },
     actionPlan: {
-      type: Type.ARRAY,
+      type: SchemaType.ARRAY,
       items: {
-        type: Type.OBJECT,
+        type: SchemaType.OBJECT,
         properties: {
-          action: { type: Type.STRING },
-          why: { type: Type.STRING },
-          how: { type: Type.STRING, description: "Exact language/approach to use." },
+          action: { type: SchemaType.STRING },
+          why: { type: SchemaType.STRING },
+          how: { type: SchemaType.STRING, description: "Exact language/approach to use." },
         },
         required: ["action", "why", "how"],
       },
@@ -88,12 +88,10 @@ interface TranscriptData {
 }
 
 export class GeminiService {
-  private apiKey: string;
-  private ai: GoogleGenAI;
+  private ai: GoogleGenerativeAI;
 
   constructor(apiKey: string) {
-    this.apiKey = apiKey;
-    this.ai = new GoogleGenAI({ apiKey });
+    this.ai = new GoogleGenerativeAI(apiKey);
   }
 
   async analyzeRelationship(data: TranscriptData): Promise<any> {
@@ -126,22 +124,24 @@ export class GeminiService {
         Analyze the trajectory and provide the psychological report based on the schema.
       `;
 
-      const response = await this.ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: promptText,
-        config: {
-          systemInstruction: SYSTEM_INSTRUCTION,
+      const model = this.ai.getGenerativeModel({
+        model: "gemini-2.0-flash-exp",
+        systemInstruction: SYSTEM_INSTRUCTION,
+        generationConfig: {
           responseMimeType: "application/json",
           responseSchema: ANALYSIS_SCHEMA,
           temperature: 0.4,
         },
       });
 
-      if (!response.text) {
+      const response = await model.generateContent(promptText);
+      const text = response.response.text();
+
+      if (!text) {
         throw new Error("No response generated");
       }
 
-      const result = JSON.parse(response.text);
+      const result = JSON.parse(text);
       return result;
     } catch (error) {
       console.error("Analysis failed:", error);

@@ -75,7 +75,8 @@ export const fathomWebhook = functions.https.onRequest(async (req, res) => {
     if (!transcript && meeting.id) {
       // If transcript not in webhook, fetch it separately
       console.log('Fetching transcript separately...');
-      transcript = await fathomService.getTranscript(meeting.id);
+      const fetchedTranscript = await fathomService.getTranscript(meeting.id);
+      transcript = fetchedTranscript || undefined;
     }
 
     if (!transcript) {

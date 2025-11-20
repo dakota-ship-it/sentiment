@@ -1,5 +1,5 @@
 import * as crypto from 'crypto';
-import { FathomMeeting, FathomWebhookPayload } from './types';
+import { FathomMeeting } from './types';
 
 const FATHOM_API_BASE = 'https://api.fathom.video/v1';
 
