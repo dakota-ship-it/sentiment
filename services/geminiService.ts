@@ -3,13 +3,12 @@ import { Type } from "@google/genai";
 import { TranscriptData, AnalysisResult, ChatMessage } from "../types";
 
 const SYSTEM_INSTRUCTION = `
-You are a client relationship analyst specializing in detecting subtle emotional and psychological signals that indicate relationship health in agency-client relationships. 
-Your job is to analyze meeting transcripts and identify warning signs that someone focused purely on tactics and metrics would miss.
-You help agency account managers understand what their clients are REALLY thinking and feeling.
+You are a client relationship analyst evaluating meeting transcripts to assess relationship health in agency-client relationships.
+Your role is to identify patterns in communication, engagement levels, and sentiment changes over time.
 
 You will be provided with three transcripts (Oldest, Middle, Recent) and context about the client.
-Analyze the trajectory across these three points in time.
-Be direct, honest, and psychological in your assessment. Don't sugarcoat.
+Analyze the trajectory across these three points in time using objective observations and factual evidence.
+Provide balanced, concise insights focused on actionable patterns rather than subjective interpretations.
 `;
 
 const ANALYSIS_SCHEMA: Schema = {
@@ -42,9 +41,9 @@ const ANALYSIS_SCHEMA: Schema = {
         type: Type.OBJECT,
         properties: {
           quote: { type: Type.STRING },
-          surfaceRead: { type: Type.STRING, description: "What a low-EQ person thinks this means." },
-          deepMeaning: { type: Type.STRING, description: "The real signal." },
-          implication: { type: Type.STRING, description: "Why it matters." },
+          surfaceRead: { type: Type.STRING, description: "Initial interpretation of the statement." },
+          deepMeaning: { type: Type.STRING, description: "Contextual interpretation based on patterns." },
+          implication: { type: Type.STRING, description: "Potential impact on the relationship." },
         },
         required: ["quote", "surfaceRead", "deepMeaning", "implication"],
       },
@@ -55,8 +54,8 @@ const ANALYSIS_SCHEMA: Schema = {
         trajectory: { type: Type.STRING, enum: ["Strengthening", "Stable", "Declining", "Critical"] },
         churnRisk: { type: Type.STRING, enum: ["Low", "Medium", "High", "Immediate"] },
         clientConfidence: { type: Type.INTEGER, description: "Score from 1 to 10" },
-        whatsReallyGoingOn: { type: Type.STRING, description: "One sentence - what are they worried about that they're not saying?" },
-        realReasonIfChurn: { type: Type.STRING, description: "Strip away polite excuses - what's the actual issue?" },
+        whatsReallyGoingOn: { type: Type.STRING, description: "One concise sentence summarizing the primary concern or underlying dynamic." },
+        realReasonIfChurn: { type: Type.STRING, description: "One concise sentence identifying the core issue if relationship is at risk." },
       },
       required: ["trajectory", "churnRisk", "clientConfidence", "whatsReallyGoingOn", "realReasonIfChurn"],
     },
@@ -99,19 +98,21 @@ export const analyzeRelationship = async (data: TranscriptData): Promise<Analysi
     // Construct the prompt content
     const promptText = `
       Here is the data for analysis:
-      
+
       ${contextSection}
-      
+
       TRANSCRIPT 1 (OLDEST - 3 meetings ago):
       ${data.oldest}
-      
+
       TRANSCRIPT 2 (MIDDLE - 2 meetings ago):
       ${data.middle}
-      
+
       TRANSCRIPT 3 (RECENT - Most recent meeting):
       ${data.recent}
-      
-      Analyze the trajectory and provide the psychological report based on the schema.
+
+      Analyze the trajectory across these three transcripts and provide an objective assessment.
+      Focus on observable patterns and measurable changes. Keep insights concise and actionable.
+      Limit each array field to the 3-5 most significant items only.
     `;
 
     const response = await ai.models.generateContent({
@@ -160,29 +161,28 @@ export const askFollowUpQuestion = async (
     contextSection += `Additional User Notes: ${data.context || "None provided."}\n`;
 
     const promptText = `
-      You are an expert client relationship analyst. You have just analyzed a set of meeting transcripts and provided a report.
-      Now the user is asking a follow-up question to dig deeper.
-      
+      You are a client relationship analyst. You have analyzed a set of meeting transcripts and provided a report.
+      Now the user is asking a follow-up question.
+
       HERE IS THE DATA YOU ANALYZED:
       ${contextSection}
-      
+
       TRANSCRIPT 1 (OLDEST): ${data.oldest}
       TRANSCRIPT 2 (MIDDLE): ${data.middle}
       TRANSCRIPT 3 (RECENT): ${data.recent}
-      
+
       HERE IS YOUR PREVIOUS ANALYSIS SUMMARY:
       - Trajectory: ${analysisResult.bottomLine.trajectory}
       - Churn Risk: ${analysisResult.bottomLine.churnRisk}
-      - Real Issue: ${analysisResult.bottomLine.whatsReallyGoingOn}
-      
+      - Primary Concern: ${analysisResult.bottomLine.whatsReallyGoingOn}
+
       CONVERSATION HISTORY:
       ${history.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n')}
-      
+
       USER QUESTION: "${question}"
-      
-      Answer the user's question directly, citing specific quotes or patterns from the transcripts if possible. 
-      Be helpful, insightful, and keep the "relationship psychologist" persona. 
-      Keep your answer concise (under 150 words) unless asked for a detailed breakdown.
+
+      Answer the user's question directly and objectively, citing specific quotes or patterns from the transcripts when relevant.
+      Keep your answer concise (2-3 sentences) unless the question specifically requests detailed analysis.
     `;
 
     const response = await ai.models.generateContent({
