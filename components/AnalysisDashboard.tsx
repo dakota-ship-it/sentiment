@@ -7,9 +7,10 @@ interface AnalysisDashboardProps {
   data: TranscriptData;
   onReset: () => void;
   onNewAnalysis?: () => void;
+  previousResult?: AnalysisResult;
 }
 
-const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onReset, onNewAnalysis }) => {
+const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onReset, onNewAnalysis, previousResult }) => {
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [question, setQuestion] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
@@ -51,6 +52,81 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onR
       default: return 'text-brand-muted';
     }
   };
+
+  // Comparison Logic
+  const getChanges = () => {
+    if (!previousResult) return null;
+
+    const prev = previousResult;
+    const curr = result;
+
+    // Risk level changes
+    const riskLevels = { 'Low': 1, 'Medium': 2, 'High': 3, 'Immediate': 4 };
+    const prevRiskLevel = riskLevels[prev.bottomLine.churnRisk];
+    const currRiskLevel = riskLevels[curr.bottomLine.churnRisk];
+    const riskChange = currRiskLevel - prevRiskLevel;
+
+    // Confidence change
+    const confidenceChange = curr.bottomLine.clientConfidence - prev.bottomLine.clientConfidence;
+
+    // Trajectory changes
+    const trajectoryLevels = { 'Strengthening': 3, 'Stable': 2, 'Declining': 1, 'Critical': 0 };
+    const prevTrajectoryLevel = trajectoryLevels[prev.bottomLine.trajectory];
+    const currTrajectoryLevel = trajectoryLevels[curr.bottomLine.trajectory];
+    const trajectoryChange = currTrajectoryLevel - prevTrajectoryLevel;
+
+    // New signals (appeared in current but not in previous)
+    const getAllSignals = (signals: typeof curr.subtleSignals) => [
+      ...signals.languagePatterns,
+      ...signals.energyFlags,
+      ...signals.trustErosion,
+      ...signals.financialAnxiety,
+      ...signals.disappeared
+    ];
+
+    const prevSignals = getAllSignals(prev.subtleSignals);
+    const currSignals = getAllSignals(curr.subtleSignals);
+
+    const newSignals = currSignals.filter(s => !prevSignals.includes(s)).slice(0, 3); // Top 3
+    const resolvedSignals = prevSignals.filter(s => !currSignals.includes(s)).slice(0, 3); // Top 3
+
+    // Trajectory metric changes
+    const metricChanges = {
+      engagement: prev.trajectoryAnalysis.engagement !== curr.trajectoryAnalysis.engagement ? {
+        from: prev.trajectoryAnalysis.engagement,
+        to: curr.trajectoryAnalysis.engagement
+      } : null,
+      meetingLength: prev.trajectoryAnalysis.meetingLength !== curr.trajectoryAnalysis.meetingLength ? {
+        from: prev.trajectoryAnalysis.meetingLength,
+        to: curr.trajectoryAnalysis.meetingLength
+      } : null,
+      energy: prev.trajectoryAnalysis.energy !== curr.trajectoryAnalysis.energy ? {
+        from: prev.trajectoryAnalysis.energy,
+        to: curr.trajectoryAnalysis.energy
+      } : null,
+      futureTalk: prev.trajectoryAnalysis.futureTalk !== curr.trajectoryAnalysis.futureTalk ? {
+        from: prev.trajectoryAnalysis.futureTalk,
+        to: curr.trajectoryAnalysis.futureTalk
+      } : null,
+    };
+
+    return {
+      riskChange,
+      prevRisk: prev.bottomLine.churnRisk,
+      currRisk: curr.bottomLine.churnRisk,
+      confidenceChange,
+      prevConfidence: prev.bottomLine.clientConfidence,
+      currConfidence: curr.bottomLine.clientConfidence,
+      trajectoryChange,
+      prevTrajectory: prev.bottomLine.trajectory,
+      currTrajectory: curr.bottomLine.trajectory,
+      newSignals,
+      resolvedSignals,
+      metricChanges
+    };
+  };
+
+  const changes = getChanges();
 
   return (
     <div className="w-full max-w-7xl mx-auto pb-20 animate-fade-in">
@@ -129,6 +205,9 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onR
           <p className="text-brand-orange font-medium">{result.bottomLine.realReasonIfChurn}</p>
         </div>
       </div>
+
+      {/* What Changed Section */}
+      {changes && <WhatChangedSection changes={changes} />}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
@@ -308,5 +387,203 @@ const ActionCard: React.FC<{ action: ActionItem, index: number }> = ({ action, i
     </div>
   </div>
 );
+
+interface ChangeData {
+  riskChange: number;
+  prevRisk: string;
+  currRisk: string;
+  confidenceChange: number;
+  prevConfidence: number;
+  currConfidence: number;
+  trajectoryChange: number;
+  prevTrajectory: string;
+  currTrajectory: string;
+  newSignals: string[];
+  resolvedSignals: string[];
+  metricChanges: {
+    engagement: { from: string; to: string } | null;
+    meetingLength: { from: string; to: string } | null;
+    energy: { from: string; to: string } | null;
+    futureTalk: { from: string; to: string } | null;
+  };
+}
+
+const WhatChangedSection: React.FC<{ changes: ChangeData }> = ({ changes }) => {
+  const hasChanges = changes.riskChange !== 0 || changes.confidenceChange !== 0 ||
+                     changes.trajectoryChange !== 0 || changes.newSignals.length > 0 ||
+                     changes.resolvedSignals.length > 0;
+
+  if (!hasChanges) {
+    return (
+      <div className="bg-brand-surface/30 border border-brand-muted/50 rounded-xl p-6 mb-8">
+        <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
+          <svg className="w-5 h-5 text-brand-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          What Changed Since Last Analysis
+        </h3>
+        <p className="text-brand-muted text-sm">No significant changes detected from previous analysis.</p>
+      </div>
+    );
+  }
+
+  const getChangeIcon = (change: number) => {
+    if (change > 0) return { icon: '↗', color: 'text-brand-green', label: 'Improving' };
+    if (change < 0) return { icon: '↘', color: 'text-red-400', label: 'Worsening' };
+    return { icon: '→', color: 'text-brand-muted', label: 'Stable' };
+  };
+
+  const riskChangeDisplay = getChangeIcon(-changes.riskChange); // Negative is good for risk
+  const confidenceChangeDisplay = getChangeIcon(changes.confidenceChange);
+  const trajectoryChangeDisplay = getChangeIcon(changes.trajectoryChange);
+
+  return (
+    <div className="bg-gradient-to-br from-brand-surface/50 to-brand-dark/30 border border-brand-cyan/30 rounded-xl p-6 mb-8 relative overflow-hidden">
+      <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-brand-cyan to-brand-green"></div>
+
+      <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+        <svg className="w-5 h-5 text-brand-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+        </svg>
+        What Changed Since Last Analysis
+      </h3>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        {/* Churn Risk Change */}
+        {changes.riskChange !== 0 && (
+          <div className="bg-brand-dark/50 rounded-lg p-4 border border-brand-muted/50">
+            <div className="text-xs text-brand-muted uppercase tracking-wider mb-2">Churn Risk</div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-400">{changes.prevRisk}</span>
+              <span className={`text-2xl ${riskChangeDisplay.color}`}>{riskChangeDisplay.icon}</span>
+              <span className="text-sm font-bold text-white">{changes.currRisk}</span>
+            </div>
+            <div className={`text-xs mt-2 ${riskChangeDisplay.color} font-medium`}>{riskChangeDisplay.label}</div>
+          </div>
+        )}
+
+        {/* Confidence Change */}
+        {changes.confidenceChange !== 0 && (
+          <div className="bg-brand-dark/50 rounded-lg p-4 border border-brand-muted/50">
+            <div className="text-xs text-brand-muted uppercase tracking-wider mb-2">Confidence</div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-400">{changes.prevConfidence}/10</span>
+              <span className={`text-2xl ${confidenceChangeDisplay.color}`}>{confidenceChangeDisplay.icon}</span>
+              <span className="text-sm font-bold text-white">{changes.currConfidence}/10</span>
+            </div>
+            <div className={`text-xs mt-2 ${confidenceChangeDisplay.color} font-medium`}>
+              {changes.confidenceChange > 0 ? `+${changes.confidenceChange}` : changes.confidenceChange} points
+            </div>
+          </div>
+        )}
+
+        {/* Trajectory Change */}
+        {changes.trajectoryChange !== 0 && (
+          <div className="bg-brand-dark/50 rounded-lg p-4 border border-brand-muted/50">
+            <div className="text-xs text-brand-muted uppercase tracking-wider mb-2">Overall Trajectory</div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-400">{changes.prevTrajectory}</span>
+              <span className={`text-2xl ${trajectoryChangeDisplay.color}`}>{trajectoryChangeDisplay.icon}</span>
+              <span className="text-sm font-bold text-white">{changes.currTrajectory}</span>
+            </div>
+            <div className={`text-xs mt-2 ${trajectoryChangeDisplay.color} font-medium`}>{trajectoryChangeDisplay.label}</div>
+          </div>
+        )}
+      </div>
+
+      {/* Metric Changes */}
+      {(changes.metricChanges.engagement || changes.metricChanges.meetingLength ||
+        changes.metricChanges.energy || changes.metricChanges.futureTalk) && (
+        <div className="mb-6">
+          <h4 className="text-sm font-bold text-brand-cyan mb-3 uppercase tracking-wider">Trajectory Metrics</h4>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {changes.metricChanges.engagement && (
+              <div className="bg-brand-dark/30 rounded-lg p-3 border border-brand-muted/30">
+                <div className="text-xs text-brand-muted mb-1">Engagement</div>
+                <div className="text-xs">
+                  <span className="text-slate-400">{changes.metricChanges.engagement.from}</span>
+                  <span className="mx-1 text-brand-cyan">→</span>
+                  <span className="text-white font-medium">{changes.metricChanges.engagement.to}</span>
+                </div>
+              </div>
+            )}
+            {changes.metricChanges.meetingLength && (
+              <div className="bg-brand-dark/30 rounded-lg p-3 border border-brand-muted/30">
+                <div className="text-xs text-brand-muted mb-1">Meeting Length</div>
+                <div className="text-xs">
+                  <span className="text-slate-400">{changes.metricChanges.meetingLength.from}</span>
+                  <span className="mx-1 text-brand-cyan">→</span>
+                  <span className="text-white font-medium">{changes.metricChanges.meetingLength.to}</span>
+                </div>
+              </div>
+            )}
+            {changes.metricChanges.energy && (
+              <div className="bg-brand-dark/30 rounded-lg p-3 border border-brand-muted/30">
+                <div className="text-xs text-brand-muted mb-1">Energy</div>
+                <div className="text-xs">
+                  <span className="text-slate-400">{changes.metricChanges.energy.from}</span>
+                  <span className="mx-1 text-brand-cyan">→</span>
+                  <span className="text-white font-medium">{changes.metricChanges.energy.to}</span>
+                </div>
+              </div>
+            )}
+            {changes.metricChanges.futureTalk && (
+              <div className="bg-brand-dark/30 rounded-lg p-3 border border-brand-muted/30">
+                <div className="text-xs text-brand-muted mb-1">Future Talk</div>
+                <div className="text-xs">
+                  <span className="text-slate-400">{changes.metricChanges.futureTalk.from}</span>
+                  <span className="mx-1 text-brand-cyan">→</span>
+                  <span className="text-white font-medium">{changes.metricChanges.futureTalk.to}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* New Signals */}
+        {changes.newSignals.length > 0 && (
+          <div className="bg-red-900/10 border border-red-500/30 rounded-lg p-4">
+            <h4 className="text-sm font-bold text-red-400 mb-3 flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              New Concerns Detected
+            </h4>
+            <ul className="space-y-2">
+              {changes.newSignals.map((signal, i) => (
+                <li key={i} className="text-sm text-slate-300 flex items-start gap-2">
+                  <span className="text-red-400 mt-1">▸</span>
+                  <span>{signal}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Resolved Signals */}
+        {changes.resolvedSignals.length > 0 && (
+          <div className="bg-green-900/10 border border-brand-green/30 rounded-lg p-4">
+            <h4 className="text-sm font-bold text-brand-green mb-3 flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Signals Improved/Resolved
+            </h4>
+            <ul className="space-y-2">
+              {changes.resolvedSignals.map((signal, i) => (
+                <li key={i} className="text-sm text-slate-300 flex items-start gap-2">
+                  <span className="text-brand-green mt-1">✓</span>
+                  <span>{signal}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 export default AnalysisDashboard;

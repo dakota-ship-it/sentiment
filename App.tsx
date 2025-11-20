@@ -33,6 +33,7 @@ const App: React.FC = () => {
     context: ''
   });
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [previousResult, setPreviousResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   React.useEffect(() => {
@@ -73,6 +74,14 @@ const App: React.FC = () => {
         console.log("Showing most recent analysis from", mostRecent.date);
         setData(mostRecent.transcriptData);
         setResult(mostRecent.result);
+
+        // Set previous analysis if available (for comparison)
+        if (history.length > 1) {
+          setPreviousResult(history[1].result);
+        } else {
+          setPreviousResult(null);
+        }
+
         setView('ANALYSIS');
         setStep(AnalysisStep.Results);
       } else {
@@ -85,6 +94,7 @@ const App: React.FC = () => {
           context: '',
           clientProfile: client
         });
+        setPreviousResult(null);
         setView('ANALYSIS');
         setStep(AnalysisStep.OldestTranscript);
       }
@@ -98,6 +108,7 @@ const App: React.FC = () => {
         context: '',
         clientProfile: client
       });
+      setPreviousResult(null);
       setView('ANALYSIS');
       setStep(AnalysisStep.OldestTranscript);
     }
@@ -109,6 +120,13 @@ const App: React.FC = () => {
       setStep(AnalysisStep.Analyzing);
       try {
         const analysis = await analyzeRelationship(data);
+
+        // If there was a previous result, use it for comparison
+        // The current result becomes the "previous" for the new analysis
+        if (result) {
+          setPreviousResult(result);
+        }
+
         setResult(analysis);
 
         // Save to DB if we have a client and user
@@ -142,6 +160,7 @@ const App: React.FC = () => {
   const handleReset = () => {
     setData({ oldest: '', middle: '', recent: '', context: '' });
     setResult(null);
+    setPreviousResult(null);
     setError(null);
     // If we have a selected client, go back to start of analysis, else dashboard
     if (view === 'ANALYSIS' && data.clientProfile) {
@@ -360,6 +379,7 @@ const App: React.FC = () => {
                     data={data}
                     onReset={handleReturnToDashboard}
                     onNewAnalysis={handleNewAnalysis}
+                    previousResult={previousResult || undefined}
                   />
                 </div>
               )}
