@@ -1,6 +1,6 @@
 import {
     collection,
-    addDoc,
+    addDoc, setDoc,
     query,
     where,
     getDocs,
@@ -163,7 +163,7 @@ export const dbService = {
             const docRef = doc(db, "client_mappings", mapping.clientId);
             await updateDoc(docRef, mapping).catch(async () => {
                 // If document doesn't exist, create it
-                await addDoc(clientMappingsRef, mapping);
+                await setDoc(docRef, mapping);
             });
         } catch (error) {
             console.error("Error setting client mapping:", error);
@@ -192,7 +192,7 @@ export const dbService = {
             const docRef = doc(db, "notification_preferences", prefs.clientId);
             await updateDoc(docRef, prefs).catch(async () => {
                 // If document doesn't exist, create it
-                await addDoc(notificationPrefsRef, prefs);
+                await setDoc(docRef, prefs);
             });
         } catch (error) {
             console.error("Error setting notification preferences:", error);
