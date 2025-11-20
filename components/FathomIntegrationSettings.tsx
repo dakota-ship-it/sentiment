@@ -129,7 +129,7 @@ export const FathomIntegrationSettings: React.FC<FathomIntegrationSettingsProps>
                 onChange={(e) => setEmailInput(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleAddEmail()}
                 placeholder="client@example.com"
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
               />
               <button
                 onClick={handleAddEmail}
@@ -172,7 +172,7 @@ export const FathomIntegrationSettings: React.FC<FathomIntegrationSettingsProps>
               value={mapping.titlePattern || ''}
               onChange={(e) => setMapping({ ...mapping, titlePattern: e.target.value })}
               placeholder="e.g., Weekly Sync|Client Check-in"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
             />
             <p className="text-xs text-gray-500 mt-1">
               Example: "Weekly.*Client" matches "Weekly Client Sync" or "Weekly Client Review"
@@ -208,7 +208,7 @@ export const FathomIntegrationSettings: React.FC<FathomIntegrationSettingsProps>
               value={notifications.podLeaderEmail}
               onChange={(e) => setNotifications({ ...notifications, podLeaderEmail: e.target.value })}
               placeholder="pod.leader@adclass.com"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
             />
           </div>
 
@@ -222,7 +222,7 @@ export const FathomIntegrationSettings: React.FC<FathomIntegrationSettingsProps>
               value={notifications.slackWebhookUrl || ''}
               onChange={(e) => setNotifications({ ...notifications, slackWebhookUrl: e.target.value })}
               placeholder="https://hooks.slack.com/services/..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
             />
           </div>
 

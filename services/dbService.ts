@@ -4,6 +4,7 @@ import {
     query,
     where,
     getDocs,
+    getDoc,
     doc,
     updateDoc,
     orderBy,
@@ -146,11 +147,11 @@ export const dbService = {
     getClientMapping: async (clientId: string): Promise<ClientMeetingMapping | null> => {
         try {
             const docRef = doc(db, "client_mappings", clientId);
-            const docSnap = await getDocs(query(collection(db, "client_mappings"), where("clientId", "==", clientId)));
-            if (docSnap.empty) {
+            const docSnap = await getDoc(docRef);
+            if (!docSnap.exists()) {
                 return null;
             }
-            return docSnap.docs[0].data() as ClientMeetingMapping;
+            return docSnap.data() as ClientMeetingMapping;
         } catch (error) {
             console.error("Error fetching client mapping:", error);
             return null;
@@ -161,10 +162,7 @@ export const dbService = {
     setClientMapping: async (mapping: ClientMeetingMapping): Promise<void> => {
         try {
             const docRef = doc(db, "client_mappings", mapping.clientId);
-            await updateDoc(docRef, mapping as any).catch(async () => {
-                // If document doesn't exist, create it
-                await setDoc(docRef, mapping as any);
-            });
+            await setDoc(docRef, mapping as any, { merge: true });
         } catch (error) {
             console.error("Error setting client mapping:", error);
             throw error;
@@ -175,11 +173,11 @@ export const dbService = {
     getNotificationPreferences: async (clientId: string): Promise<NotificationPreferences | null> => {
         try {
             const docRef = doc(db, "notification_preferences", clientId);
-            const docSnap = await getDocs(query(collection(db, "notification_preferences"), where("clientId", "==", clientId)));
-            if (docSnap.empty) {
+            const docSnap = await getDoc(docRef);
+            if (!docSnap.exists()) {
                 return null;
             }
-            return docSnap.docs[0].data() as NotificationPreferences;
+            return docSnap.data() as NotificationPreferences;
         } catch (error) {
             console.error("Error fetching notification preferences:", error);
             return null;
@@ -190,10 +188,7 @@ export const dbService = {
     setNotificationPreferences: async (prefs: NotificationPreferences): Promise<void> => {
         try {
             const docRef = doc(db, "notification_preferences", prefs.clientId);
-            await updateDoc(docRef, prefs as any).catch(async () => {
-                // If document doesn't exist, create it
-                await setDoc(docRef, prefs as any);
-            });
+            await setDoc(docRef, prefs as any, { merge: true });
         } catch (error) {
             console.error("Error setting notification preferences:", error);
             throw error;
@@ -204,11 +199,11 @@ export const dbService = {
     getTranscriptQueue: async (clientId: string): Promise<TranscriptQueue | null> => {
         try {
             const docRef = doc(db, "transcript_queues", clientId);
-            const docSnap = await getDocs(query(collection(db, "transcript_queues"), where("clientId", "==", clientId)));
-            if (docSnap.empty) {
+            const docSnap = await getDoc(docRef);
+            if (!docSnap.exists()) {
                 return null;
             }
-            return docSnap.docs[0].data() as TranscriptQueue;
+            return docSnap.data() as TranscriptQueue;
         } catch (error) {
             console.error("Error fetching transcript queue:", error);
             return null;
