@@ -70,13 +70,20 @@ export const FathomIntegrationSettings: React.FC<FathomIntegrationSettingsProps>
   const handleSave = async () => {
     setSaving(true);
     try {
+      console.log('Attempting to save mapping:', mapping);
       await dbService.setClientMapping(mapping);
+      console.log('Mapping saved successfully');
+
+      console.log('Attempting to save notifications:', notifications);
       await dbService.setNotificationPreferences(notifications);
+      console.log('Notifications saved successfully');
+
       alert('Fathom integration settings saved successfully!');
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving settings:', error);
-      alert('Failed to save settings. Please try again.');
+      const errorMessage = error?.message || error?.toString() || 'Unknown error';
+      alert(`Failed to save settings: ${errorMessage}\n\nPlease check the browser console for more details.`);
     } finally {
       setSaving(false);
     }
