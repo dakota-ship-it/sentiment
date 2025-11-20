@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ClientProfile } from '../types';
 import { dbService, ClientMeetingMapping, NotificationPreferences } from '../services/dbService';
+import { auth } from '../services/firebase';
 
 interface FathomIntegrationSettingsProps {
   client: ClientProfile;
@@ -70,6 +71,16 @@ export const FathomIntegrationSettings: React.FC<FathomIntegrationSettingsProps>
   const handleSave = async () => {
     setSaving(true);
     try {
+      // Check authentication
+      const currentUser = auth.currentUser;
+      console.log('Current user:', currentUser?.email, 'UID:', currentUser?.uid);
+
+      if (!currentUser) {
+        alert('You are not logged in. Please refresh the page and sign in again.');
+        setSaving(false);
+        return;
+      }
+
       console.log('Attempting to save mapping:', mapping);
       await dbService.setClientMapping(mapping);
       console.log('Mapping saved successfully');
@@ -83,7 +94,22 @@ export const FathomIntegrationSettings: React.FC<FathomIntegrationSettingsProps>
     } catch (error: any) {
       console.error('Error saving settings:', error);
       const errorMessage = error?.message || error?.toString() || 'Unknown error';
-      alert(`Failed to save settings: ${errorMessage}\n\nPlease check the browser console for more details.`);
+
+      // Check if it's a permissions error
+      if (errorMessage.includes('Missing or insufficient permissions')) {
+        alert(
+          'Missing or insufficient permissions.\n\n' +
+          '⚠️ ACTION REQUIRED: Deploy Firestore rules\n\n' +
+          'The database security rules need to be deployed to Firebase.\n\n' +
+          'Run this command from your project:\n' +
+          './deploy-firestore-rules.sh\n\n' +
+          'OR manually in Firebase Console:\n' +
+          'Firestore Database → Rules → Publish\n\n' +
+          'See FIRESTORE_RULES_DEPLOYMENT.md for details.'
+        );
+      } else {
+        alert(`Failed to save settings: ${errorMessage}\n\nPlease check the browser console for more details.`);
+      }
     } finally {
       setSaving(false);
     }
