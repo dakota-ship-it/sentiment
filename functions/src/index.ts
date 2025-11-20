@@ -28,9 +28,9 @@ export const fathomWebhook = functions.https.onRequest(async (req, res) => {
 
   try {
     // Get environment variables
-    const fathomApiKey = functions.config().fathom?.api_key;
-    const fathomWebhookSecret = functions.config().fathom?.webhook_secret;
-    const geminiApiKey = functions.config().gemini?.api_key;
+    const fathomApiKey = process.env.FATHOM_API_KEY;
+    const fathomWebhookSecret = process.env.FATHOM_WEBHOOK_SECRET;
+    const geminiApiKey = process.env.GEMINI_API_KEY;
 
     if (!fathomApiKey || !fathomWebhookSecret) {
       console.error('Fathom credentials not configured');
@@ -248,7 +248,7 @@ export const triggerManualAnalysis = functions.https.onCall(async (data, context
     throw new functions.https.HttpsError('invalid-argument', 'clientId is required');
   }
 
-  const geminiApiKey = functions.config().gemini?.api_key;
+  const geminiApiKey = process.env.GEMINI_API_KEY;
   if (!geminiApiKey) {
     throw new functions.https.HttpsError('failed-precondition', 'Gemini API not configured');
   }
@@ -274,7 +274,7 @@ export const scheduledFathomSync = functions.pubsub
   .onRun(async (context) => {
     console.log('Starting scheduled Fathom sync');
 
-    const fathomApiKey = functions.config().fathom?.api_key;
+    const fathomApiKey = process.env.FATHOM_API_KEY;
     if (!fathomApiKey) {
       console.error('Fathom API key not configured');
       return;
