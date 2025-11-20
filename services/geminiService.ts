@@ -27,13 +27,18 @@ const ANALYSIS_SCHEMA: Schema = {
     subtleSignals: {
       type: Type.OBJECT,
       properties: {
-        languagePatterns: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Shifts in commitment, ownership, or hedging." },
-        energyFlags: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Tone, answers, multitasking signals." },
-        trustErosion: { type: Type.ARRAY, items: { type: Type.STRING }, description: "New decision makers, comparisons, questioning agreements." },
-        financialAnxiety: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Budget mentions, pressure indicators." },
-        disappeared: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Strategic talks, sharing wins, future planning." },
+        strengtheningIndicators: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+          description: "Positive signals: proactive engagement, sharing wins, collaborative language, enthusiasm about future, trust indicators."
+        },
+        concerningPatterns: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+          description: "Negative signals: language shifts (hedging, ownership changes), energy drops, trust erosion, financial anxiety, disappeared topics."
+        },
       },
-      required: ["languagePatterns", "energyFlags", "trustErosion", "financialAnxiety", "disappeared"],
+      required: ["strengtheningIndicators", "concerningPatterns"],
     },
     criticalMoments: {
       type: Type.ARRAY,
@@ -110,9 +115,22 @@ export const analyzeRelationship = async (data: TranscriptData): Promise<Analysi
       TRANSCRIPT 3 (RECENT - Most recent meeting):
       ${data.recent}
 
-      Analyze the trajectory across these three transcripts and provide an objective assessment.
-      Focus on observable patterns and measurable changes. Keep insights concise and actionable.
-      Limit each array field to the 3-5 most significant items only.
+      Analyze the trajectory across these three transcripts and provide a BALANCED, objective assessment.
+
+      IMPORTANT - You must identify BOTH:
+      1. Strengthening indicators (positive signals, engagement, enthusiasm, trust)
+      2. Concerning patterns (warning signs, disengagement, anxiety)
+
+      CHURN RISK CALIBRATION:
+      - Low: Client is engaged, shares wins, talks about future, responds promptly. Minor issues are normal.
+      - Medium: Some warning signs but still engaged overall. May need attention but not urgent.
+      - High: Multiple strong warning signs, clear disengagement, mentions competitors/budget cuts.
+      - Immediate: Client has explicitly mentioned leaving, stopped responding, or terminated services.
+
+      Note: Occasional rushed meetings or busy periods are NORMAL and not automatically high risk.
+      Focus on sustained patterns across all three transcripts, not isolated incidents.
+
+      Keep insights concise and actionable. Limit each array to 3-5 most significant items.
     `;
 
     const response = await ai.models.generateContent({

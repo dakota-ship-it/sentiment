@@ -149,11 +149,8 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onR
           <div>
             <h3 className="text-xl font-bold text-white mb-4">Detected Signals</h3>
             <div className="bg-brand-surface rounded-xl border border-brand-muted p-6">
-              <SignalGroup title="Language Patterns" items={result.subtleSignals.languagePatterns} color="text-blue-300" />
-              <SignalGroup title="Energy Flags" items={result.subtleSignals.energyFlags} color="text-brand-orange" />
-              <SignalGroup title="Trust Erosion" items={result.subtleSignals.trustErosion} color="text-red-300" />
-              <SignalGroup title="Financial Anxiety" items={result.subtleSignals.financialAnxiety} color="text-brand-green" />
-              <SignalGroup title="What Disappeared" items={result.subtleSignals.disappeared} color="text-brand-muted" />
+              <SignalGroup title="✓ Strengthening Indicators" items={result.subtleSignals.strengtheningIndicators} color="text-green-400" />
+              <SignalGroup title="⚠ Concerning Patterns" items={result.subtleSignals.concerningPatterns} color="text-brand-orange" />
             </div>
           </div>
         </div>

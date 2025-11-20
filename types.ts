@@ -53,11 +53,8 @@ export interface AnalysisResult {
     futureTalk: "More" | "Less" | "Same";
   };
   subtleSignals: {
-    languagePatterns: string[];
-    energyFlags: string[];
-    trustErosion: string[];
-    financialAnxiety: string[];
-    disappeared: string[];
+    strengtheningIndicators: string[];
+    concerningPatterns: string[];
   };
   criticalMoments: CriticalMoment[];
   bottomLine: {
