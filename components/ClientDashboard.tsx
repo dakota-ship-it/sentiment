@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ClientProfile } from '../types';
 import { dbService } from '../services/dbService';
+import { FathomIntegrationSettings } from './FathomIntegrationSettings';
 
 interface ClientDashboardProps {
   onSelectClient: (client: ClientProfile) => void;
@@ -27,6 +28,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
   const [clients, setClients] = useState<ClientWithSentiment[]>([]);
   const [loading, setLoading] = useState(true);
   const [showClientSelector, setShowClientSelector] = useState(false);
+  const [fathomSettingsClient, setFathomSettingsClient] = useState<ClientProfile | null>(null);
 
   useEffect(() => {
     const loadClientsWithSentiment = async () => {
@@ -250,6 +252,13 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
                     <span className="text-xs font-bold text-brand-cyan uppercase tracking-wider">View Analysis</span>
                     <div className="flex gap-1">
                       <button
+                        onClick={(e) => { e.stopPropagation(); setFathomSettingsClient(client); }}
+                        className="p-1 hover:bg-brand-dark rounded text-brand-muted hover:text-brand-cyan text-sm"
+                        title="Fathom Integration"
+                      >
+                        ⚙
+                      </button>
+                      <button
                         onClick={(e) => { e.stopPropagation(); onEditClient(client); }}
                         className="p-1 hover:bg-brand-dark rounded text-brand-muted hover:text-white text-sm"
                         title="Edit"
@@ -286,6 +295,14 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
             Create Client Profile
           </button>
         </div>
+      )}
+
+      {/* Fathom Integration Settings Modal */}
+      {fathomSettingsClient && (
+        <FathomIntegrationSettings
+          client={fathomSettingsClient}
+          onClose={() => setFathomSettingsClient(null)}
+        />
       )}
     </div>
   );

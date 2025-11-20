@@ -16,6 +16,9 @@ import { ClientProfile, AnalysisResult, TranscriptData } from "../types";
 // Collection References
 const clientsRef = collection(db, "clients");
 const analysesRef = collection(db, "analyses");
+const clientMappingsRef = collection(db, "client_mappings");
+const transcriptQueuesRef = collection(db, "transcript_queues");
+const notificationPrefsRef = collection(db, "notification_preferences");
 
 // Types for DB
 interface DBClient extends ClientProfile {
@@ -28,6 +31,37 @@ interface DBAnalysis {
     date: Timestamp;
     result: AnalysisResult;
     transcriptData: TranscriptData;
+}
+
+// Fathom Integration Types
+export interface ClientMeetingMapping {
+    clientId: string;
+    participantEmails?: string[];
+    titlePattern?: string;
+    fathomMeetingIds?: string[];
+    autoDetect?: boolean;
+}
+
+export interface NotificationPreferences {
+    clientId: string;
+    podLeaderEmail: string;
+    notifyOnNewTranscript?: boolean;
+    notifyOnAutoAnalysis?: boolean;
+    slackWebhookUrl?: string;
+}
+
+export interface TranscriptQueue {
+    clientId: string;
+    transcripts: Array<{
+        fathomMeetingId: string;
+        transcript: string;
+        meetingDate: string;
+        meetingTitle: string;
+        addedAt: number;
+        sequence: 'oldest' | 'middle' | 'recent';
+    }>;
+    lastProcessed?: number;
+    autoAnalysisEnabled: boolean;
 }
 
 export const dbService = {
@@ -103,6 +137,81 @@ export const dbService = {
         } catch (error) {
             console.error("Error fetching history:", error);
             return [];
+        }
+    },
+
+    // ============ Fathom Integration Methods ============
+
+    // Get client meeting mapping
+    getClientMapping: async (clientId: string): Promise<ClientMeetingMapping | null> => {
+        try {
+            const docRef = doc(db, "client_mappings", clientId);
+            const docSnap = await getDocs(query(collection(db, "client_mappings"), where("clientId", "==", clientId)));
+            if (docSnap.empty) {
+                return null;
+            }
+            return docSnap.docs[0].data() as ClientMeetingMapping;
+        } catch (error) {
+            console.error("Error fetching client mapping:", error);
+            return null;
+        }
+    },
+
+    // Set client meeting mapping
+    setClientMapping: async (mapping: ClientMeetingMapping): Promise<void> => {
+        try {
+            const docRef = doc(db, "client_mappings", mapping.clientId);
+            await updateDoc(docRef, mapping).catch(async () => {
+                // If document doesn't exist, create it
+                await addDoc(clientMappingsRef, mapping);
+            });
+        } catch (error) {
+            console.error("Error setting client mapping:", error);
+            throw error;
+        }
+    },
+
+    // Get notification preferences
+    getNotificationPreferences: async (clientId: string): Promise<NotificationPreferences | null> => {
+        try {
+            const docRef = doc(db, "notification_preferences", clientId);
+            const docSnap = await getDocs(query(collection(db, "notification_preferences"), where("clientId", "==", clientId)));
+            if (docSnap.empty) {
+                return null;
+            }
+            return docSnap.docs[0].data() as NotificationPreferences;
+        } catch (error) {
+            console.error("Error fetching notification preferences:", error);
+            return null;
+        }
+    },
+
+    // Set notification preferences
+    setNotificationPreferences: async (prefs: NotificationPreferences): Promise<void> => {
+        try {
+            const docRef = doc(db, "notification_preferences", prefs.clientId);
+            await updateDoc(docRef, prefs).catch(async () => {
+                // If document doesn't exist, create it
+                await addDoc(notificationPrefsRef, prefs);
+            });
+        } catch (error) {
+            console.error("Error setting notification preferences:", error);
+            throw error;
+        }
+    },
+
+    // Get transcript queue
+    getTranscriptQueue: async (clientId: string): Promise<TranscriptQueue | null> => {
+        try {
+            const docRef = doc(db, "transcript_queues", clientId);
+            const docSnap = await getDocs(query(collection(db, "transcript_queues"), where("clientId", "==", clientId)));
+            if (docSnap.empty) {
+                return null;
+            }
+            return docSnap.docs[0].data() as TranscriptQueue;
+        } catch (error) {
+            console.error("Error fetching transcript queue:", error);
+            return null;
         }
     }
 };

@@ -14,5 +14,17 @@ service cloud.firestore {
     match /analyses/{analysisId} {
       allow read, write, create, delete: if isAdClassUser();
     }
+
+    match /transcript_queues/{clientId} {
+      allow read, write, create, delete: if isAdClassUser();
+    }
+
+    match /client_mappings/{clientId} {
+      allow read, write, create, delete: if isAdClassUser();
+    }
+
+    match /notification_preferences/{clientId} {
+      allow read, write, create, delete: if isAdClassUser();
+    }
   }
 }
