@@ -554,20 +554,16 @@ const CommunicationStyleCard: React.FC<{ style: CommunicationStyle }> = ({ style
 const MeetingActionItemCard: React.FC<{ item: MeetingActionItem }> = ({ item }) => {
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed': return 'text-brand-green border-brand-green/30 bg-brand-green/10';
       case 'pending': return 'text-yellow-400 border-yellow-400/30 bg-yellow-400/10';
-      case 'unclear': return 'text-brand-muted border-brand-muted/30 bg-brand-muted/10';
-      case 'dropped': return 'text-red-400 border-red-400/30 bg-red-400/10';
+      case 'in-progress': return 'text-blue-400 border-blue-400/30 bg-blue-400/10';
       default: return 'text-brand-muted';
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'completed': return '✓';
       case 'pending': return '○';
-      case 'unclear': return '?';
-      case 'dropped': return '✗';
+      case 'in-progress': return '◐';
       default: return '•';
     }
   };
@@ -579,14 +575,9 @@ const MeetingActionItemCard: React.FC<{ item: MeetingActionItem }> = ({ item }) 
         <div className="flex-grow">
           <div className="flex items-center justify-between mb-2">
             <p className="text-white font-medium text-sm">{item.item}</p>
-            <div className="flex gap-2 flex-shrink-0">
-              <span className={`px-2 py-1 rounded text-xs font-bold ${getStatusColor(item.status)}`}>
-                {item.status}
-              </span>
-              <span className="px-2 py-1 rounded bg-brand-dark text-xs text-brand-muted border border-brand-muted">
-                {item.source}
-              </span>
-            </div>
+            <span className={`px-2 py-1 rounded text-xs font-bold ${getStatusColor(item.status)}`}>
+              {item.status}
+            </span>
           </div>
           <div className="flex items-center gap-2 mb-2">
             <span className="text-xs text-brand-muted">Owner:</span>

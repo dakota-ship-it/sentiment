@@ -60,12 +60,11 @@ export interface ActionItem {
   how: string;
 }
 
-// Action items extracted from meeting transcripts (commitments, follow-ups, promises)
+// Action items extracted from the most recent transcript only
 export interface MeetingActionItem {
   item: string;
   owner: string; // Who is responsible (agency or client)
-  source: 'oldest' | 'middle' | 'recent';
-  status: 'completed' | 'pending' | 'unclear' | 'dropped';
+  status: 'pending' | 'in-progress';
   notes: string;
 }
 

@@ -345,7 +345,7 @@ export const dbService = {
                 actionItemHistory: analysisResult.meetingActionItems?.map(ai => ({
                     item: ai.item,
                     dateIdentified: now,
-                    status: ai.status as 'completed' | 'pending' | 'dropped',
+                    status: ai.status === 'in-progress' ? 'pending' : ai.status as 'completed' | 'pending' | 'dropped',
                     owner: ai.owner
                 })) || [],
                 trajectoryHistory: [{

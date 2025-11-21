@@ -24,7 +24,7 @@ COMMUNICATION STYLE ANALYSIS:
 Analyze each key participant's communication style and how it evolves across the meetings. Look for shifts from collaborative to defensive, or from engaged to disengaged.
 
 ACTION ITEM TRACKING:
-Extract any commitments, follow-ups, or promises made during the meetings and track whether they appear to have been completed in subsequent transcripts.
+Extract action items, commitments, and follow-ups ONLY from the most recent transcript. These are the current open items that need attention.
 `;
 
 const ANALYSIS_SCHEMA: Schema = {
@@ -89,17 +89,16 @@ const ANALYSIS_SCHEMA: Schema = {
     },
     meetingActionItems: {
       type: Type.ARRAY,
-      description: "Action items, commitments, and follow-ups extracted from the transcripts",
+      description: "Action items, commitments, and follow-ups extracted from the MOST RECENT transcript only",
       items: {
         type: Type.OBJECT,
         properties: {
           item: { type: Type.STRING, description: "The specific action item or commitment" },
           owner: { type: Type.STRING, description: "Who is responsible: 'agency' or 'client'" },
-          source: { type: Type.STRING, enum: ["oldest", "middle", "recent"], description: "Which transcript this came from" },
-          status: { type: Type.STRING, enum: ["completed", "pending", "unclear", "dropped"], description: "Current status based on subsequent transcripts" },
-          notes: { type: Type.STRING, description: "Context about the status or why it matters" },
+          status: { type: Type.STRING, enum: ["pending", "in-progress"], description: "Current status of the action item" },
+          notes: { type: Type.STRING, description: "Context about the item or why it matters" },
         },
-        required: ["item", "owner", "source", "status", "notes"],
+        required: ["item", "owner", "status", "notes"],
       },
     },
     communicationStyles: {
