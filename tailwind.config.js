@@ -15,12 +15,12 @@ export default {
       },
       colors: {
         brand: {
-          dark: '#1D3533',      // Main Background
-          surface: '#2C3849',   // Card/Surface Background
-          muted: '#4A5664',     // Borders/Secondary Text
-          cyan: '#1AF0E5',      // Primary Accent
-          green: '#11CC27',     // Success
-          orange: '#E3A378',    // Warning/Peach
+          dark: '#0A0E1A',      // Main Background - Deep Navy
+          surface: '#1A1F2E',   // Card/Surface Background - Dark Slate
+          muted: '#4A5568',     // Borders/Secondary Text - Neutral Gray
+          cyan: '#0EA5E9',      // Primary Accent - Electric Sky Blue
+          green: '#10B981',     // Success - Modern Emerald
+          orange: '#F59E0B',    // Warning - Vibrant Amber
           white: '#FFFFFF',     // Text
         }
       },
