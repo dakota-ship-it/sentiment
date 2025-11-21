@@ -201,14 +201,14 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onR
       )}
 
       {/* Top-Level Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
         {/* Churn Risk */}
         <div className={`p-6 rounded-xl border backdrop-blur-sm ${getRiskColor(result.bottomLine.churnRisk)} flex flex-col justify-between`}>
           <span className="text-xs font-bold uppercase tracking-wider opacity-70">Churn Risk</span>
           <div className="text-3xl font-bold mt-2">{result.bottomLine.churnRisk}</div>
         </div>
 
-        {/* Confidence Score */}
+        {/* Client Confidence Score */}
         <div className="p-6 rounded-xl border border-brand-muted bg-brand-surface backdrop-blur-sm flex flex-col justify-between">
           <span className="text-xs font-bold uppercase tracking-wider text-brand-muted">Client Confidence</span>
           <div className="flex items-end mt-2">
@@ -216,6 +216,17 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onR
               {result.bottomLine.clientConfidence}
             </span>
             <span className="text-xl text-brand-muted mb-1">/10</span>
+          </div>
+        </div>
+
+        {/* Assessment Confidence */}
+        <div className="p-6 rounded-xl border border-brand-muted bg-brand-surface backdrop-blur-sm flex flex-col justify-between">
+          <span className="text-xs font-bold uppercase tracking-wider text-brand-muted">Assessment Confidence</span>
+          <div className={`text-2xl font-bold mt-2 ${
+            result.bottomLine.confidenceInAssessment === 'High' ? 'text-brand-green' :
+            result.bottomLine.confidenceInAssessment === 'Medium' ? 'text-yellow-400' : 'text-brand-muted'
+          }`}>
+            {result.bottomLine.confidenceInAssessment}
           </div>
         </div>
 
@@ -246,8 +257,8 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onR
           "{result.bottomLine.whatsReallyGoingOn}"
         </p>
         <div className="mt-6 pt-6 border-t border-brand-muted/50">
-          <p className="text-sm text-brand-muted uppercase font-bold tracking-wider mb-2">The Real Breakup Reason (If ignored)</p>
-          <p className="text-brand-orange font-medium">{result.bottomLine.realReasonIfChurn}</p>
+          <p className="text-sm text-brand-muted uppercase font-bold tracking-wider mb-2">Likely Underlying Driver If They Leave</p>
+          <p className="text-brand-orange font-medium">{result.bottomLine.likelyUnderlyingDriverIfChurn}</p>
         </div>
       </div>
 
@@ -272,9 +283,9 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onR
             <div className="bg-brand-surface rounded-xl border border-brand-muted p-6">
               <SignalGroup title="Language Patterns" items={result.subtleSignals.languagePatterns} color="text-blue-300" />
               <SignalGroup title="Energy Flags" items={result.subtleSignals.energyFlags} color="text-brand-orange" />
-              <SignalGroup title="Trust Erosion" items={result.subtleSignals.trustErosion} color="text-red-300" />
-              <SignalGroup title="Financial Anxiety" items={result.subtleSignals.financialAnxiety} color="text-brand-green" />
-              <SignalGroup title="What Disappeared" items={result.subtleSignals.disappeared} color="text-brand-muted" />
+              <SignalGroup title="Trust Concerns" items={result.subtleSignals.trustConcerns} color="text-red-300" />
+              <SignalGroup title="Financial Anxiety" items={result.subtleSignals.financialAnxiety} color="text-yellow-300" />
+              <SignalGroup title="Positive Signals" items={result.subtleSignals.positiveSignals} color="text-brand-green" />
             </div>
           </div>
 
@@ -415,28 +426,49 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onR
 
 // Helper Components for Dashboard
 
-const CriticalMomentCard: React.FC<{ moment: CriticalMoment }> = ({ moment }) => (
-  <div className="bg-brand-surface rounded-lg border border-brand-muted p-5 hover:border-brand-muted/80 transition-colors">
-    <div className="flex gap-3 mb-3">
-      <div className="min-w-[3px] bg-brand-orange rounded-full opacity-70"></div>
-      <blockquote className="text-slate-300 italic font-serif text-lg">"{moment.quote}"</blockquote>
-    </div>
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm mt-4">
-      <div>
-        <span className="block text-xs text-brand-muted uppercase tracking-wider mb-1">Surface Read</span>
-        <span className="text-slate-400">{moment.surfaceRead}</span>
+const CriticalMomentCard: React.FC<{ moment: CriticalMoment }> = ({ moment }) => {
+  const getConfidenceColor = (confidence: string) => {
+    switch (confidence) {
+      case 'High': return 'text-brand-green border-brand-green/30 bg-brand-green/10';
+      case 'Medium': return 'text-yellow-400 border-yellow-400/30 bg-yellow-400/10';
+      case 'Low': return 'text-brand-muted border-brand-muted/30 bg-brand-muted/10';
+      default: return 'text-brand-muted';
+    }
+  };
+
+  return (
+    <div className="bg-brand-surface rounded-lg border border-brand-muted p-5 hover:border-brand-muted/80 transition-colors">
+      <div className="flex gap-3 mb-3">
+        <div className="min-w-[3px] bg-brand-orange rounded-full opacity-70"></div>
+        <blockquote className="text-slate-300 italic font-serif text-lg">"{moment.quote}"</blockquote>
       </div>
-      <div>
-        <span className="block text-xs text-brand-cyan/80 uppercase tracking-wider mb-1 font-bold">Deep Meaning</span>
-        <span className="text-brand-cyan font-medium">{moment.deepMeaning}</span>
+      <div className="flex gap-2 mb-3">
+        <span className={`px-2 py-1 rounded text-xs font-bold border ${getConfidenceColor(moment.confidence)}`}>
+          {moment.confidence} confidence
+        </span>
+        {moment.type && (
+          <span className="px-2 py-1 rounded bg-brand-dark text-xs text-brand-muted border border-brand-muted">
+            {moment.type}
+          </span>
+        )}
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm mt-4">
+        <div>
+          <span className="block text-xs text-brand-muted uppercase tracking-wider mb-1">Surface Read</span>
+          <span className="text-slate-400">{moment.surfaceRead}</span>
+        </div>
+        <div>
+          <span className="block text-xs text-brand-cyan/80 uppercase tracking-wider mb-1 font-bold">Nuanced Interpretation</span>
+          <span className="text-brand-cyan font-medium">{moment.deepMeaning}</span>
+        </div>
+      </div>
+      <div className="mt-4 pt-3 border-t border-brand-muted/50">
+        <span className="text-xs text-brand-orange uppercase tracking-wider mr-2">Implication:</span>
+        <span className="text-slate-400 text-sm">{moment.implication}</span>
       </div>
     </div>
-    <div className="mt-4 pt-3 border-t border-brand-muted/50">
-      <span className="text-xs text-brand-orange uppercase tracking-wider mr-2">Implication:</span>
-      <span className="text-slate-400 text-sm">{moment.implication}</span>
-    </div>
-  </div>
-);
+  );
+};
 
 const SignalGroup: React.FC<{ title: string, items: string[], color: string }> = ({ title, items, color }) => {
   if (!items || items.length === 0) return null;

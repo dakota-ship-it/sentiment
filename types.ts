@@ -52,6 +52,8 @@ export interface CriticalMoment {
   surfaceRead: string;
   deepMeaning: string;
   implication: string;
+  confidence: 'Low' | 'Medium' | 'High';
+  type?: string; // e.g. 'trust', 'strategy', 'financial', 'communication'
 }
 
 export interface ActionItem {
@@ -95,17 +97,18 @@ export interface AnalysisResult {
   subtleSignals: {
     languagePatterns: string[];
     energyFlags: string[];
-    trustErosion: string[];
+    trustConcerns: string[];
     financialAnxiety: string[];
-    disappeared: string[];
+    positiveSignals: string[];
   };
   criticalMoments: CriticalMoment[];
   bottomLine: {
     trajectory: "Strengthening" | "Stable" | "Declining" | "Critical";
     churnRisk: "Low" | "Medium" | "High" | "Immediate";
     clientConfidence: number; // 1-10
+    confidenceInAssessment: "Low" | "Medium" | "High";
     whatsReallyGoingOn: string;
-    realReasonIfChurn: string;
+    likelyUnderlyingDriverIfChurn: string;
   };
   actionPlan: ActionItem[];
   // New features
