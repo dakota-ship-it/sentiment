@@ -9,9 +9,10 @@ interface AnalysisDashboardProps {
   onNewAnalysis?: () => void;
   onRerunWithFeedback?: (feedback: { inaccuracies?: string; additionalContext?: string; focusAreas?: string[] }) => void;
   onAddTranscripts?: (transcripts: string[]) => void;
+  onReloadAnalysis?: () => void;
 }
 
-const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onReset, onNewAnalysis, onRerunWithFeedback, onAddTranscripts }) => {
+const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onReset, onNewAnalysis, onRerunWithFeedback, onAddTranscripts, onReloadAnalysis }) => {
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [question, setQuestion] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
@@ -96,6 +97,15 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onR
           <p className="text-brand-muted font-mono text-sm">SENTIMENT AI ANALYSIS</p>
         </div>
         <div className="flex flex-wrap gap-3 mt-4 md:mt-0">
+          {onReloadAnalysis && (
+            <button
+              onClick={onReloadAnalysis}
+              className="text-sm px-4 py-2 bg-brand-surface border border-purple-400 text-purple-400 hover:bg-purple-400 hover:text-brand-dark rounded-lg transition-all font-medium"
+              title="Re-run analysis with same transcripts (useful for testing profile changes)"
+            >
+              🔄 Reload Analysis
+            </button>
+          )}
           {onAddTranscripts && (
             <button
               onClick={() => setShowAddTranscripts(!showAddTranscripts)}

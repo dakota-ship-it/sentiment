@@ -372,6 +372,41 @@ const App: React.FC = () => {
     }
   };
 
+  const handleReloadAnalysis = async () => {
+    // Reload analysis with same data - useful for testing profile changes
+    setStep(AnalysisStep.Analyzing);
+    try {
+      // Reload pod leader profile in case it was updated
+      if (auth.currentUser) {
+        try {
+          const updatedProfile = await dbService.getPodLeaderProfile(auth.currentUser.uid);
+          setPodLeaderProfile(updatedProfile);
+          console.log("Pod leader profile reloaded for analysis");
+        } catch (error) {
+          console.error("Failed to reload pod leader profile:", error);
+        }
+      }
+
+      // Re-run analysis with current data
+      const analysis = await analyzeRelationship(data, podLeaderProfile);
+      setResult(analysis);
+
+      // Update existing analysis if we have one
+      if (data.clientProfile && auth.currentUser && currentAnalysisId) {
+        dbService.updateAnalysis(
+          currentAnalysisId,
+          analysis,
+          data
+        ).catch(err => console.error("Failed to update analysis", err));
+      }
+
+      setStep(AnalysisStep.Results);
+    } catch (err) {
+      setError("Failed to reload analysis. Please try again.");
+      setStep(AnalysisStep.Results);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-brand-dark text-brand-white font-sans selection:bg-brand-cyan selection:text-brand-dark">
 
@@ -527,6 +562,7 @@ const App: React.FC = () => {
                     onNewAnalysis={handleNewAnalysis}
                     onRerunWithFeedback={handleRerunWithFeedback}
                     onAddTranscripts={handleAddTranscripts}
+                    onReloadAnalysis={handleReloadAnalysis}
                   />
                 </div>
               )}
