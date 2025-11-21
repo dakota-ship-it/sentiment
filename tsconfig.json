@@ -20,7 +20,7 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "types": [
-      "node"
+      "vite/client"
     ]
   },
   "include": [
@@ -33,6 +33,8 @@
     "vite.config.ts"
   ],
   "exclude": [
-    "functions/**/*"
+    "functions/**/*",
+    "vitest.config.ts",
+    "tests/**/*"
   ]
 }

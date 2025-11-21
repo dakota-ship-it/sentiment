@@ -6,7 +6,6 @@ import {
     getDocs,
     doc,
     updateDoc,
-    orderBy,
     limit,
     Timestamp
 } from "firebase/firestore";
@@ -16,14 +15,6 @@ import { ClientProfile, AnalysisResult, TranscriptData } from "../types";
 // Collection References
 const clientsRef = collection(db, "clients");
 const analysesRef = collection(db, "analyses");
-const clientMappingsRef = collection(db, "client_mappings");
-const transcriptQueuesRef = collection(db, "transcript_queues");
-const notificationPrefsRef = collection(db, "notification_preferences");
-
-// Types for DB
-interface DBClient extends ClientProfile {
-    ownerId: string;
-}
 
 interface DBAnalysis {
     clientId: string;
@@ -145,7 +136,6 @@ export const dbService = {
     // Get client meeting mapping
     getClientMapping: async (clientId: string): Promise<ClientMeetingMapping | null> => {
         try {
-            const docRef = doc(db, "client_mappings", clientId);
             const docSnap = await getDocs(query(collection(db, "client_mappings"), where("clientId", "==", clientId)));
             if (docSnap.empty) {
                 return null;
@@ -181,7 +171,6 @@ export const dbService = {
     // Get notification preferences
     getNotificationPreferences: async (clientId: string): Promise<NotificationPreferences | null> => {
         try {
-            const docRef = doc(db, "notification_preferences", clientId);
             const docSnap = await getDocs(query(collection(db, "notification_preferences"), where("clientId", "==", clientId)));
             if (docSnap.empty) {
                 return null;
@@ -217,7 +206,6 @@ export const dbService = {
     // Get transcript queue
     getTranscriptQueue: async (clientId: string): Promise<TranscriptQueue | null> => {
         try {
-            const docRef = doc(db, "transcript_queues", clientId);
             const docSnap = await getDocs(query(collection(db, "transcript_queues"), where("clientId", "==", clientId)));
             if (docSnap.empty) {
                 return null;
