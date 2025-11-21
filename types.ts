@@ -27,6 +27,13 @@ export interface TranscriptData {
     additionalContext?: string;
     focusAreas?: string[];
   };
+  // Rolling history summary (compressed context from all previous analyses)
+  historicalContext?: {
+    cumulativeSummary: string;
+    totalPreviousMeetings: number;
+    trajectoryTrend: string; // e.g., "Generally declining over 6 months"
+    keyHistoricalMoments: string[];
+  };
 }
 
 export enum AnalysisStep {
@@ -111,4 +118,45 @@ export interface AnalysisResult {
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+}
+
+// Rolling summary for handling unlimited transcript history efficiently
+export interface ClientRelationshipHistory {
+  clientId: string;
+  // Compressed AI-generated summary of all previous analyses
+  cumulativeSummary: string;
+  // Key moments that should always be remembered (top 15 most significant)
+  keyMoments: {
+    date: string;
+    quote: string;
+    significance: string;
+    sentiment: 'positive' | 'negative' | 'neutral';
+  }[];
+  // Track action items across all time
+  actionItemHistory: {
+    item: string;
+    dateIdentified: string;
+    dateResolved?: string;
+    status: 'completed' | 'pending' | 'dropped';
+    owner: string;
+  }[];
+  // Trajectory over time for trend visualization
+  trajectoryHistory: {
+    date: string;
+    trajectory: string;
+    churnRisk: string;
+    confidence: number;
+  }[];
+  // Communication style evolution
+  participantProfiles: {
+    name: string;
+    currentStyle: string;
+    styleHistory: { date: string; style: string }[];
+    notes: string;
+  }[];
+  // Metadata
+  totalMeetingsAnalyzed: number;
+  firstAnalysisDate: string;
+  lastAnalysisDate: string;
+  lastUpdated: number;
 }

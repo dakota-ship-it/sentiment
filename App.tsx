@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { TranscriptData, AnalysisStep, AnalysisResult, ClientProfile } from './types';
-import { analyzeRelationship } from './services/geminiService';
+import { analyzeRelationship, generateCumulativeSummary } from './services/geminiService';
 import ProgressBar from './components/ProgressBar';
 import InputStep from './components/InputStep';
 import AnalysisDashboard from './components/AnalysisDashboard';
@@ -108,17 +108,61 @@ const App: React.FC = () => {
       // Start Analysis
       setStep(AnalysisStep.Analyzing);
       try {
-        const analysis = await analyzeRelationship(data);
+        // Load historical context if available
+        let dataWithHistory = { ...data };
+        if (data.clientProfile) {
+          const history = await dbService.getRelationshipHistory(data.clientProfile.id);
+          if (history && history.cumulativeSummary) {
+            // Calculate trajectory trend
+            const recentTrajectories = history.trajectoryHistory.slice(-5);
+            const trajectoryTrend = recentTrajectories.length > 1
+              ? `${recentTrajectories[0].trajectory} → ${recentTrajectories[recentTrajectories.length - 1].trajectory} over ${recentTrajectories.length} analyses`
+              : 'First analysis';
+
+            dataWithHistory = {
+              ...data,
+              historicalContext: {
+                cumulativeSummary: history.cumulativeSummary,
+                totalPreviousMeetings: history.totalMeetingsAnalyzed,
+                trajectoryTrend,
+                keyHistoricalMoments: history.keyMoments.slice(-5).map(m => `${m.quote} (${m.significance})`)
+              }
+            };
+          }
+        }
+
+        const analysis = await analyzeRelationship(dataWithHistory);
         setResult(analysis);
 
-        // Save to DB if we have a client and user
+        // Save to DB and update rolling history if we have a client and user
         if (data.clientProfile && auth.currentUser) {
+          // Save the analysis
           dbService.saveAnalysis(
             auth.currentUser.uid,
             data.clientProfile.id,
             analysis,
-            data
+            dataWithHistory
           ).catch(err => console.error("Failed to save analysis history", err));
+
+          // Update rolling summary (async, don't block UI)
+          (async () => {
+            try {
+              const existingHistory = await dbService.getRelationshipHistory(data.clientProfile!.id);
+              const newSummary = await generateCumulativeSummary(
+                analysis,
+                existingHistory?.cumulativeSummary || null,
+                existingHistory?.totalMeetingsAnalyzed || 0
+              );
+              await dbService.updateRelationshipHistoryFromAnalysis(
+                data.clientProfile!.id,
+                analysis,
+                newSummary
+              );
+              console.log("Rolling history updated successfully");
+            } catch (err) {
+              console.error("Failed to update rolling history", err);
+            }
+          })();
         }
 
         setStep(AnalysisStep.Results);

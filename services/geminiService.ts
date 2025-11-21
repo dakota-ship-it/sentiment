@@ -179,11 +179,28 @@ export const analyzeRelationship = async (data: TranscriptData): Promise<Analysi
       }
     }
 
+    // Build historical context section (rolling summary from previous analyses)
+    let historicalSection = "";
+    if (data.historicalContext) {
+      historicalSection = `
+HISTORICAL RELATIONSHIP CONTEXT (Summary of ${data.historicalContext.totalPreviousMeetings} previous meetings):
+${data.historicalContext.cumulativeSummary}
+
+Overall Trajectory Trend: ${data.historicalContext.trajectoryTrend}
+
+Key Historical Moments to Remember:
+${data.historicalContext.keyHistoricalMoments.map((m, i) => `${i + 1}. ${m}`).join('\n')}
+
+Use this historical context to identify long-term patterns and compare current behavior to past behavior.
+`;
+    }
+
     // Construct the prompt content
     const promptText = `
       Here is the data for analysis:
 
       ${contextSection}
+      ${historicalSection}
 
       TRANSCRIPT 1 (OLDEST - 3 meetings ago):
       ${data.oldest}
@@ -199,6 +216,7 @@ export const analyzeRelationship = async (data: TranscriptData): Promise<Analysi
       Analyze the trajectory and provide the psychological report based on the schema.
 
       Important: Pay special attention to sarcasm, passive-aggressive comments, and communication style shifts. Extract all action items and track their status across meetings.
+      ${data.historicalContext ? 'Compare current patterns to the historical context provided.' : ''}
     `;
 
     const response = await ai.models.generateContent({
@@ -284,5 +302,82 @@ export const askFollowUpQuestion = async (
   } catch (error) {
     console.error("Chat failed:", error);
     throw error;
+  }
+};
+
+// Generate a cumulative summary to update the rolling history
+// This compresses the current analysis + existing summary into a new summary
+export const generateCumulativeSummary = async (
+  analysisResult: AnalysisResult,
+  existingSummary: string | null,
+  totalMeetings: number
+): Promise<string> => {
+  try {
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) throw new Error("API key not configured");
+
+    const ai = new GoogleGenAI({ apiKey });
+
+    const promptText = existingSummary ? `
+      You are maintaining a rolling summary of a client relationship over time.
+
+      EXISTING SUMMARY (from ${totalMeetings} previous meetings):
+      ${existingSummary}
+
+      NEW ANALYSIS RESULTS TO INCORPORATE:
+      - Current Trajectory: ${analysisResult.bottomLine.trajectory}
+      - Current Churn Risk: ${analysisResult.bottomLine.churnRisk}
+      - Client Confidence: ${analysisResult.bottomLine.clientConfidence}/10
+      - What's Really Going On: ${analysisResult.bottomLine.whatsReallyGoingOn}
+      - Potential Churn Reason: ${analysisResult.bottomLine.realReasonIfChurn}
+
+      Key Signals Detected:
+      - Language Patterns: ${analysisResult.subtleSignals.languagePatterns.join('; ')}
+      - Energy Flags: ${analysisResult.subtleSignals.energyFlags.join('; ')}
+      - Trust Erosion: ${analysisResult.subtleSignals.trustErosion.join('; ')}
+
+      Critical Moments:
+      ${analysisResult.criticalMoments.map(m => `"${m.quote}" - ${m.deepMeaning}`).join('\n')}
+
+      Create an UPDATED cumulative summary (max 500 words) that:
+      1. Preserves important historical patterns from the existing summary
+      2. Integrates the new findings
+      3. Notes any changes in trajectory or sentiment over time
+      4. Highlights persistent issues vs new concerns
+      5. Maintains chronological awareness (this is now meeting ${totalMeetings + 1})
+
+      The summary should be useful for future analysis sessions to understand the full history without reading all transcripts.
+    ` : `
+      Create an initial relationship summary based on this first analysis:
+
+      - Trajectory: ${analysisResult.bottomLine.trajectory}
+      - Churn Risk: ${analysisResult.bottomLine.churnRisk}
+      - Client Confidence: ${analysisResult.bottomLine.clientConfidence}/10
+      - What's Really Going On: ${analysisResult.bottomLine.whatsReallyGoingOn}
+      - Potential Churn Reason: ${analysisResult.bottomLine.realReasonIfChurn}
+
+      Key Signals:
+      - Language Patterns: ${analysisResult.subtleSignals.languagePatterns.join('; ')}
+      - Energy Flags: ${analysisResult.subtleSignals.energyFlags.join('; ')}
+
+      Critical Moments:
+      ${analysisResult.criticalMoments.map(m => `"${m.quote}" - ${m.deepMeaning}`).join('\n')}
+
+      Create a concise summary (max 300 words) capturing the baseline state of this relationship. This will be used as context for future analyses.
+    `;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: promptText,
+      config: {
+        temperature: 0.3, // Low temperature for consistent summaries
+      },
+    });
+
+    return response.text || "Unable to generate summary.";
+  } catch (error) {
+    console.error("Summary generation failed:", error);
+    // Return a basic summary on failure
+    return `Analysis ${totalMeetings + 1}: ${analysisResult.bottomLine.trajectory} trajectory, ${analysisResult.bottomLine.churnRisk} churn risk. Key issue: ${analysisResult.bottomLine.whatsReallyGoingOn}`;
   }
 };
