@@ -26,5 +26,14 @@ service cloud.firestore {
     match /notification_preferences/{clientId} {
       allow read, write, create, delete: if isAdClassUser();
     }
+
+    match /pod_leaders/{userId} {
+      // Users can read and write their own profile
+      allow read, write, create, delete: if isAdClassUser() && request.auth.uid == userId;
+    }
+
+    match /relationship_history/{clientId} {
+      allow read, write, create, delete: if isAdClassUser();
+    }
   }
 }
