@@ -123,6 +123,42 @@ export const dbService = {
         }
     },
 
+    // Update an existing analysis (for re-runs with feedback)
+    updateAnalysis: async (analysisId: string, result: AnalysisResult, transcriptData: TranscriptData): Promise<void> => {
+        try {
+            const docRef = doc(db, "analyses", analysisId);
+            await updateDoc(docRef, {
+                result,
+                transcriptData,
+                date: Timestamp.now() // Update timestamp to reflect the re-run
+            });
+        } catch (error) {
+            console.error("Error updating analysis:", error);
+            throw error;
+        }
+    },
+
+    // Get the most recent analysis ID for a client
+    getMostRecentAnalysisId: async (clientId: string): Promise<string | null> => {
+        try {
+            const q = query(
+                analysesRef,
+                where("clientId", "==", clientId),
+                limit(5)
+            );
+            const snapshot = await getDocs(q);
+            if (snapshot.empty) return null;
+            // Sort by date and return the most recent ID
+            const sorted = snapshot.docs.sort((a, b) =>
+                b.data().date.toMillis() - a.data().date.toMillis()
+            );
+            return sorted[0].id;
+        } catch (error) {
+            console.error("Error getting analysis ID:", error);
+            return null;
+        }
+    },
+
     // Get analysis history for a client
     getAnalysisHistory: async (clientId: string): Promise<DBAnalysis[]> => {
         try {

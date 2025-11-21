@@ -34,6 +34,7 @@ const App: React.FC = () => {
   });
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [currentAnalysisId, setCurrentAnalysisId] = useState<string | null>(null);
 
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -65,6 +66,7 @@ const App: React.FC = () => {
     // Try to load the most recent analysis for this client
     try {
       const history = await dbService.getAnalysisHistory(client.id);
+      const analysisId = await dbService.getMostRecentAnalysisId(client.id);
       console.log("Analysis history loaded:", history.length, "items");
 
       if (history.length > 0) {
@@ -73,11 +75,13 @@ const App: React.FC = () => {
         console.log("Showing most recent analysis from", mostRecent.date);
         setData(mostRecent.transcriptData);
         setResult(mostRecent.result);
+        setCurrentAnalysisId(analysisId);
         setView('ANALYSIS');
         setStep(AnalysisStep.Results);
       } else {
         console.log("No previous analysis found, starting new one");
         // No previous analysis, start a new one
+        setCurrentAnalysisId(null);
         setData({
           oldest: '',
           middle: '',
@@ -91,6 +95,7 @@ const App: React.FC = () => {
     } catch (error) {
       console.error("Failed to load analysis history", error);
       // Fallback to new analysis
+      setCurrentAnalysisId(null);
       setData({
         oldest: '',
         middle: '',
@@ -136,13 +141,14 @@ const App: React.FC = () => {
 
         // Save to DB and update rolling history if we have a client and user
         if (data.clientProfile && auth.currentUser) {
-          // Save the analysis
+          // Save the analysis and store the ID for potential re-runs
           dbService.saveAnalysis(
             auth.currentUser.uid,
             data.clientProfile.id,
             analysis,
             dataWithHistory
-          ).catch(err => console.error("Failed to save analysis history", err));
+          ).then(id => setCurrentAnalysisId(id))
+          .catch(err => console.error("Failed to save analysis history", err));
 
           // Update rolling summary (async, don't block UI)
           (async () => {
@@ -273,14 +279,45 @@ const App: React.FC = () => {
       const analysis = await analyzeRelationship(updatedData);
       setResult(analysis);
 
-      // Save to DB if we have a client and user
+      // Update existing analysis or save new one
       if (data.clientProfile && auth.currentUser) {
-        dbService.saveAnalysis(
-          auth.currentUser.uid,
-          data.clientProfile.id,
-          analysis,
-          updatedData
-        ).catch(err => console.error("Failed to save analysis history", err));
+        if (currentAnalysisId) {
+          // Update the existing analysis so clicking back shows the corrected version
+          dbService.updateAnalysis(
+            currentAnalysisId,
+            analysis,
+            updatedData
+          ).catch(err => console.error("Failed to update analysis", err));
+        } else {
+          // No existing analysis, create new one
+          dbService.saveAnalysis(
+            auth.currentUser.uid,
+            data.clientProfile.id,
+            analysis,
+            updatedData
+          ).then(id => setCurrentAnalysisId(id))
+           .catch(err => console.error("Failed to save analysis", err));
+        }
+
+        // Also update rolling history with the corrected analysis
+        (async () => {
+          try {
+            const existingHistory = await dbService.getRelationshipHistory(data.clientProfile!.id);
+            const newSummary = await generateCumulativeSummary(
+              analysis,
+              existingHistory?.cumulativeSummary || null,
+              existingHistory?.totalMeetingsAnalyzed || 0
+            );
+            await dbService.updateRelationshipHistoryFromAnalysis(
+              data.clientProfile!.id,
+              analysis,
+              newSummary
+            );
+            console.log("Rolling history updated with feedback corrections");
+          } catch (err) {
+            console.error("Failed to update rolling history", err);
+          }
+        })();
       }
 
       setStep(AnalysisStep.Results);
@@ -303,14 +340,15 @@ const App: React.FC = () => {
       const analysis = await analyzeRelationship(updatedData);
       setResult(analysis);
 
-      // Save to DB if we have a client and user
+      // Save to DB if we have a client and user, and store the ID
       if (data.clientProfile && auth.currentUser) {
         dbService.saveAnalysis(
           auth.currentUser.uid,
           data.clientProfile.id,
           analysis,
           updatedData
-        ).catch(err => console.error("Failed to save analysis history", err));
+        ).then(id => setCurrentAnalysisId(id))
+        .catch(err => console.error("Failed to save analysis history", err));
       }
 
       setStep(AnalysisStep.Results);
