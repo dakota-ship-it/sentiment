@@ -55,3 +55,15 @@ export interface NotificationPreferences {
   notifyOnAutoAnalysis?: boolean;
   slackWebhookUrl?: string;
 }
+
+// Pod leader profile for personality-based blind spot analysis
+export interface PodLeaderProfile {
+  id: string; // Firebase user ID
+  name: string;
+  email: string;
+  pod?: string;
+  // Personality framework summary (Enneagram, MBTI, DISC, etc.)
+  personalitySummary?: string;
+  createdAt: number;
+  updatedAt: number;
+}

@@ -13,6 +13,17 @@ export interface ClientProfile {
   createdAt: number;
 }
 
+export interface PodLeaderProfile {
+  id: string; // Firebase user ID
+  name: string;
+  email: string;
+  pod?: string;
+  // Personality framework summary (Enneagram, MBTI, DISC, etc.)
+  personalitySummary?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface TranscriptData {
   oldest: string;
   middle: string;
@@ -115,6 +126,12 @@ export interface AnalysisResult {
   meetingActionItems: MeetingActionItem[];
   communicationStyles: CommunicationStyle[];
   sarcasmInstances: SarcasmInstance[];
+  // Personality-based blind spots for the pod leader
+  blindSpotsForYourPersonality?: {
+    overview: string;
+    specificBlindSpots: string[];
+    whatToWatchFor: string[];
+  };
 }
 
 export interface ChatMessage {

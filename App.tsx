@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { TranscriptData, AnalysisStep, AnalysisResult, ClientProfile } from './types';
+import { TranscriptData, AnalysisStep, AnalysisResult, ClientProfile, PodLeaderProfile } from './types';
 import { analyzeRelationship, generateCumulativeSummary } from './services/geminiService';
 import ProgressBar from './components/ProgressBar';
 import InputStep from './components/InputStep';
 import AnalysisDashboard from './components/AnalysisDashboard';
 import { ClientDashboard } from './components/ClientDashboard';
 import { ClientForm } from './components/ClientForm';
+import { PodLeaderProfileForm } from './components/PodLeaderProfileForm';
 import Auth from './components/Auth';
 import { auth } from './services/firebase';
 import { dbService } from './services/dbService';
@@ -17,9 +18,11 @@ const App: React.FC = () => {
   // Auth State - MUST be first
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [podLeaderProfile, setPodLeaderProfile] = useState<PodLeaderProfile | null>(null);
 
   // Global State
   const [view, setView] = useState<ViewState>('DASHBOARD');
+  const [showProfileForm, setShowProfileForm] = useState(false);
 
   // Client Management State
   const [editingClient, setEditingClient] = useState<ClientProfile | undefined>(undefined);
@@ -37,8 +40,19 @@ const App: React.FC = () => {
   const [currentAnalysisId, setCurrentAnalysisId] = useState<string | null>(null);
 
   React.useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
+      if (currentUser) {
+        // Load pod leader profile
+        try {
+          const profile = await dbService.getPodLeaderProfile(currentUser.uid);
+          setPodLeaderProfile(profile);
+        } catch (error) {
+          console.error("Failed to load pod leader profile:", error);
+        }
+      } else {
+        setPodLeaderProfile(null);
+      }
       setAuthLoading(false);
     });
     return () => unsubscribe();
@@ -136,7 +150,7 @@ const App: React.FC = () => {
           }
         }
 
-        const analysis = await analyzeRelationship(dataWithHistory);
+        const analysis = await analyzeRelationship(dataWithHistory, podLeaderProfile);
         setResult(analysis);
 
         // Save to DB and update rolling history if we have a client and user
@@ -276,7 +290,7 @@ const App: React.FC = () => {
         feedback
       };
       setData(updatedData);
-      const analysis = await analyzeRelationship(updatedData);
+      const analysis = await analyzeRelationship(updatedData, podLeaderProfile);
       setResult(analysis);
 
       // Update existing analysis or save new one
@@ -337,7 +351,7 @@ const App: React.FC = () => {
         additionalTranscripts: [...existingAdditional, ...transcripts]
       };
       setData(updatedData);
-      const analysis = await analyzeRelationship(updatedData);
+      const analysis = await analyzeRelationship(updatedData, podLeaderProfile);
       setResult(analysis);
 
       // Save to DB if we have a client and user, and store the ID
@@ -358,6 +372,41 @@ const App: React.FC = () => {
     }
   };
 
+  const handleReloadAnalysis = async () => {
+    // Reload analysis with same data - useful for testing profile changes
+    setStep(AnalysisStep.Analyzing);
+    try {
+      // Reload pod leader profile in case it was updated
+      if (auth.currentUser) {
+        try {
+          const updatedProfile = await dbService.getPodLeaderProfile(auth.currentUser.uid);
+          setPodLeaderProfile(updatedProfile);
+          console.log("Pod leader profile reloaded for analysis");
+        } catch (error) {
+          console.error("Failed to reload pod leader profile:", error);
+        }
+      }
+
+      // Re-run analysis with current data
+      const analysis = await analyzeRelationship(data, podLeaderProfile);
+      setResult(analysis);
+
+      // Update existing analysis if we have one
+      if (data.clientProfile && auth.currentUser && currentAnalysisId) {
+        dbService.updateAnalysis(
+          currentAnalysisId,
+          analysis,
+          data
+        ).catch(err => console.error("Failed to update analysis", err));
+      }
+
+      setStep(AnalysisStep.Results);
+    } catch (err) {
+      setError("Failed to reload analysis. Please try again.");
+      setStep(AnalysisStep.Results);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-brand-dark text-brand-white font-sans selection:bg-brand-cyan selection:text-brand-dark">
 
@@ -373,11 +422,21 @@ const App: React.FC = () => {
 
           {/* VIEW: DASHBOARD */}
           {view === 'DASHBOARD' && (
-            <ClientDashboard
-              onSelectClient={handleClientSelect}
-              onAddClient={() => { setEditingClient(undefined); setView('CLIENT_FORM'); }}
-              onEditClient={(client) => { setEditingClient(client); setView('CLIENT_FORM'); }}
-            />
+            <>
+              <div className="flex justify-end mb-4">
+                <button
+                  onClick={() => setShowProfileForm(true)}
+                  className="px-4 py-2 bg-brand-surface text-brand-cyan border border-brand-cyan rounded-md hover:bg-brand-cyan hover:text-brand-dark transition-colors text-sm font-medium"
+                >
+                  ⚙️ My Profile & Blind Spots
+                </button>
+              </div>
+              <ClientDashboard
+                onSelectClient={handleClientSelect}
+                onAddClient={() => { setEditingClient(undefined); setView('CLIENT_FORM'); }}
+                onEditClient={(client) => { setEditingClient(client); setView('CLIENT_FORM'); }}
+              />
+            </>
           )}
 
           {/* VIEW: CLIENT FORM */}
@@ -503,6 +562,7 @@ const App: React.FC = () => {
                     onNewAnalysis={handleNewAnalysis}
                     onRerunWithFeedback={handleRerunWithFeedback}
                     onAddTranscripts={handleAddTranscripts}
+                    onReloadAnalysis={handleReloadAnalysis}
                   />
                 </div>
               )}
@@ -524,6 +584,25 @@ const App: React.FC = () => {
           POWERED BY GOOGLE GEMINI
         </footer>
       </div>
+
+      {/* Pod Leader Profile Form Modal */}
+      {showProfileForm && user && (
+        <PodLeaderProfileForm
+          userId={user.uid}
+          userEmail={user.email || ''}
+          userName={user.displayName || user.email || 'Pod Leader'}
+          onClose={() => setShowProfileForm(false)}
+          onSave={async () => {
+            // Reload the pod leader profile after saving
+            try {
+              const profile = await dbService.getPodLeaderProfile(user.uid);
+              setPodLeaderProfile(profile);
+            } catch (error) {
+              console.error("Failed to reload pod leader profile:", error);
+            }
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -1,6 +1,6 @@
 import { GoogleGenAI, Schema } from "@google/genai";
 import { Type } from "@google/genai";
-import { TranscriptData, AnalysisResult, ChatMessage } from "../types";
+import { TranscriptData, AnalysisResult, ChatMessage, PodLeaderProfile } from "../types";
 
 const SYSTEM_INSTRUCTION = `
 You are a client relationship analyst who helps agency teams understand the health of their client relationships over time.
@@ -43,6 +43,14 @@ Analyze each key participant's communication style and how it evolves across the
 
 ACTION ITEM TRACKING:
 Extract action items, commitments, and follow-ups ONLY from the most recent transcript. These are the current open items that need attention.
+
+PERSONALITY-BASED BLIND SPOT ANALYSIS:
+If the pod leader has provided their personality profile (Enneagram, MBTI, DISC, etc.), you should identify blind spots they might have when analyzing this relationship.
+- Consider what signals their personality type naturally emphasizes or overlooks
+- Point out specific moments in these transcripts that they might miss based on their cognitive style
+- Be specific and cite actual evidence from the transcripts
+- Frame this as helpful self-awareness, not criticism
+- Only include this section if a personality profile is provided
 `;
 
 const ANALYSIS_SCHEMA: Schema = {
@@ -151,11 +159,21 @@ const ANALYSIS_SCHEMA: Schema = {
         required: ["quote", "source", "type", "underlyingMeaning", "severity"],
       },
     },
+    blindSpotsForYourPersonality: {
+      type: Type.OBJECT,
+      description: "Personality-based blind spots that the pod leader might have when analyzing this client relationship",
+      properties: {
+        overview: { type: Type.STRING, description: "Brief overview of what the pod leader's personality type might naturally overlook in this specific analysis" },
+        specificBlindSpots: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Specific signals in these transcripts that this personality type might miss or underweight" },
+        whatToWatchFor: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Concrete things for this personality type to pay extra attention to" },
+      },
+      required: ["overview", "specificBlindSpots", "whatToWatchFor"],
+    },
   },
   required: ["trajectoryAnalysis", "subtleSignals", "criticalMoments", "bottomLine", "actionPlan", "meetingActionItems", "communicationStyles", "sarcasmInstances"],
 };
 
-export const analyzeRelationship = async (data: TranscriptData): Promise<AnalysisResult> => {
+export const analyzeRelationship = async (data: TranscriptData, podLeaderProfile?: PodLeaderProfile | null): Promise<AnalysisResult> => {
   try {
     const apiKey = process.env.API_KEY;
 
@@ -215,12 +233,26 @@ Use this historical context to identify long-term patterns and compare current b
 `;
     }
 
+    // Build pod leader personality section
+    let podLeaderSection = "";
+    if (podLeaderProfile?.personalitySummary) {
+      podLeaderSection = `
+POD LEADER PERSONALITY PROFILE:
+${podLeaderProfile.personalitySummary}
+
+IMPORTANT: Based on this personality profile, identify specific blind spots this pod leader might have when analyzing these transcripts.
+Point out signals they might naturally overlook or underweight given their cognitive style and personality tendencies.
+Cite specific moments from the transcripts that their personality type might miss.
+`;
+    }
+
     // Construct the prompt content
     const promptText = `
       Here is the data for analysis:
 
       ${contextSection}
       ${historicalSection}
+      ${podLeaderSection}
 
       TRANSCRIPT 1 (OLDEST - 3 meetings ago):
       ${data.oldest}
@@ -237,6 +269,7 @@ Use this historical context to identify long-term patterns and compare current b
 
       Important: Pay special attention to sarcasm, passive-aggressive comments, and communication style shifts. Extract all action items and track their status across meetings.
       ${data.historicalContext ? 'Compare current patterns to the historical context provided.' : ''}
+      ${podLeaderProfile?.personalitySummary ? 'CRITICAL: Include the blindSpotsForYourPersonality section based on the pod leader personality profile provided above.' : ''}
     `;
 
     const response = await ai.models.generateContent({

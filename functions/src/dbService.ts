@@ -13,6 +13,7 @@ const COLLECTIONS = {
   TRANSCRIPT_QUEUES: 'transcript_queues',
   CLIENT_MAPPINGS: 'client_mappings',
   NOTIFICATIONS: 'notification_preferences',
+  POD_LEADERS: 'pod_leaders',
 };
 
 export class DatabaseService {
@@ -239,5 +240,49 @@ export class DatabaseService {
       .collection(COLLECTIONS.NOTIFICATIONS)
       .doc(preferences.clientId)
       .set(preferences);
+  }
+
+  // ============ Pod Leader Profile Methods ============
+
+  /**
+   * Get pod leader profile by user ID
+   */
+  async getPodLeaderProfile(userId: string): Promise<any | null> {
+    const doc = await this.db
+      .collection(COLLECTIONS.POD_LEADERS)
+      .doc(userId)
+      .get();
+
+    return doc.exists ? doc.data() : null;
+  }
+
+  /**
+   * Get pod leader profile by email
+   */
+  async getPodLeaderProfileByEmail(email: string): Promise<any | null> {
+    const snapshot = await this.db
+      .collection(COLLECTIONS.POD_LEADERS)
+      .where('email', '==', email)
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) {
+      return null;
+    }
+
+    return snapshot.docs[0].data();
+  }
+
+  /**
+   * Save or update pod leader profile
+   */
+  async savePodLeaderProfile(profile: any): Promise<void> {
+    await this.db
+      .collection(COLLECTIONS.POD_LEADERS)
+      .doc(profile.id)
+      .set({
+        ...profile,
+        updatedAt: Date.now()
+      });
   }
 }

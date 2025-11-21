@@ -11,7 +11,7 @@ import {
     Timestamp
 } from "firebase/firestore";
 import { db } from "./firebase";
-import { ClientProfile, AnalysisResult, TranscriptData, ClientRelationshipHistory } from "../types";
+import { ClientProfile, AnalysisResult, TranscriptData, ClientRelationshipHistory, PodLeaderProfile } from "../types";
 
 // Collection References
 const clientsRef = collection(db, "clients");
@@ -20,6 +20,7 @@ const clientMappingsRef = collection(db, "client_mappings");
 const transcriptQueuesRef = collection(db, "transcript_queues");
 const notificationPrefsRef = collection(db, "notification_preferences");
 const relationshipHistoryRef = collection(db, "relationship_history");
+const podLeadersRef = collection(db, "pod_leaders");
 
 // Types for DB
 interface DBClient extends ClientProfile {
@@ -369,6 +370,66 @@ export const dbService = {
             await dbService.saveRelationshipHistory(updated);
         } catch (error) {
             console.error("Error updating relationship history:", error);
+            throw error;
+        }
+    },
+
+    // ============ Pod Leader Profile Methods ============
+
+    // Get pod leader profile by user ID
+    getPodLeaderProfile: async (userId: string): Promise<PodLeaderProfile | null> => {
+        try {
+            const docRef = doc(db, "pod_leaders", userId);
+            const docSnap = await getDocs(query(podLeadersRef, where("id", "==", userId)));
+            if (docSnap.empty) {
+                return null;
+            }
+            return docSnap.docs[0].data() as PodLeaderProfile;
+        } catch (error) {
+            console.error("Error fetching pod leader profile:", error);
+            return null;
+        }
+    },
+
+    // Get pod leader profile by email
+    getPodLeaderProfileByEmail: async (email: string): Promise<PodLeaderProfile | null> => {
+        try {
+            const q = query(podLeadersRef, where("email", "==", email));
+            const docSnap = await getDocs(q);
+            if (docSnap.empty) {
+                return null;
+            }
+            return docSnap.docs[0].data() as PodLeaderProfile;
+        } catch (error) {
+            console.error("Error fetching pod leader profile by email:", error);
+            return null;
+        }
+    },
+
+    // Save or update pod leader profile
+    savePodLeaderProfile: async (profile: PodLeaderProfile): Promise<void> => {
+        try {
+            const docRef = doc(db, "pod_leaders", profile.id);
+            await setDoc(docRef, {
+                ...profile,
+                updatedAt: Date.now()
+            });
+        } catch (error) {
+            console.error("Error saving pod leader profile:", error);
+            throw error;
+        }
+    },
+
+    // Update pod leader profile
+    updatePodLeaderProfile: async (userId: string, updates: Partial<PodLeaderProfile>): Promise<void> => {
+        try {
+            const docRef = doc(db, "pod_leaders", userId);
+            await updateDoc(docRef, {
+                ...updates,
+                updatedAt: Date.now()
+            });
+        } catch (error) {
+            console.error("Error updating pod leader profile:", error);
             throw error;
         }
     }
