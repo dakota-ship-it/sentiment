@@ -92,6 +92,7 @@ const App: React.FC = () => {
         setCurrentAnalysisId(analysisId);
         setView('ANALYSIS');
         setStep(AnalysisStep.Results);
+        window.scrollTo(0, 0);
       } else {
         console.log("No previous analysis found, starting new one");
         // No previous analysis, start a new one
@@ -105,6 +106,7 @@ const App: React.FC = () => {
         });
         setView('ANALYSIS');
         setStep(AnalysisStep.OldestTranscript);
+        window.scrollTo(0, 0);
       }
     } catch (error) {
       console.error("Failed to load analysis history", error);
@@ -119,6 +121,7 @@ const App: React.FC = () => {
       });
       setView('ANALYSIS');
       setStep(AnalysisStep.OldestTranscript);
+      window.scrollTo(0, 0);
     }
   };
 
