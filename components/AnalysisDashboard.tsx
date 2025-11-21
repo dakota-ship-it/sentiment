@@ -13,7 +13,83 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onR
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [question, setQuestion] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle');
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const formatForNotion = () => {
+    const clientName = data.clientProfile?.name || 'Client';
+    const lines: string[] = [];
+
+    lines.push(`# ${clientName} - Relationship Diagnosis`);
+    lines.push('');
+    lines.push('## Overview');
+    lines.push(`| Metric | Value |`);
+    lines.push(`| --- | --- |`);
+    lines.push(`| **Churn Risk** | ${result.bottomLine.churnRisk} |`);
+    lines.push(`| **Client Confidence** | ${result.bottomLine.clientConfidence}/10 |`);
+    lines.push(`| **Trajectory** | ${result.bottomLine.trajectory} |`);
+    lines.push('');
+
+    lines.push('### Trajectory Details');
+    Object.entries(result.trajectoryAnalysis).forEach(([key, val]) => {
+      const label = key.replace(/([A-Z])/g, ' $1').trim();
+      lines.push(`- **${label}:** ${val}`);
+    });
+    lines.push('');
+
+    lines.push(`## What's Really Going On`);
+    lines.push(`> ${result.bottomLine.whatsReallyGoingOn}`);
+    lines.push('');
+    lines.push(`**Real Breakup Reason (If Ignored):** ${result.bottomLine.realReasonIfChurn}`);
+    lines.push('');
+
+    lines.push('## Critical Moments');
+    result.criticalMoments.forEach((moment, idx) => {
+      lines.push(`### ${idx + 1}. "${moment.quote}"`);
+      lines.push(`- **Surface Read:** ${moment.surfaceRead}`);
+      lines.push(`- **Deep Meaning:** ${moment.deepMeaning}`);
+      lines.push(`- **Implication:** ${moment.implication}`);
+      lines.push('');
+    });
+
+    lines.push('## Detected Signals');
+    const signalGroups = [
+      { title: 'Language Patterns', items: result.subtleSignals.languagePatterns },
+      { title: 'Energy Flags', items: result.subtleSignals.energyFlags },
+      { title: 'Trust Erosion', items: result.subtleSignals.trustErosion },
+      { title: 'Financial Anxiety', items: result.subtleSignals.financialAnxiety },
+      { title: 'What Disappeared', items: result.subtleSignals.disappeared },
+    ];
+    signalGroups.forEach(({ title, items }) => {
+      if (items && items.length > 0) {
+        lines.push(`### ${title}`);
+        items.forEach(item => lines.push(`- ${item}`));
+        lines.push('');
+      }
+    });
+
+    lines.push('## Action Plan');
+    result.actionPlan.forEach((action, idx) => {
+      lines.push(`### ${idx + 1}. ${action.action}`);
+      lines.push(`**Why:** ${action.why}`);
+      lines.push('');
+      lines.push(`**How:** ${action.how}`);
+      lines.push('');
+    });
+
+    return lines.join('\n');
+  };
+
+  const handleCopyForNotion = async () => {
+    const text = formatForNotion();
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyStatus('copied');
+      setTimeout(() => setCopyStatus('idle'), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
 
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -65,6 +141,22 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onR
           <p className="text-brand-muted font-mono text-sm">SENTIMENT AI ANALYSIS</p>
         </div>
         <div className="flex gap-3 mt-4 md:mt-0">
+          <button
+            onClick={handleCopyForNotion}
+            className="text-sm px-4 py-2 bg-brand-surface border border-brand-muted text-brand-white hover:border-brand-cyan hover:text-brand-cyan rounded-lg transition-all font-medium flex items-center gap-2"
+          >
+            {copyStatus === 'copied' ? (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                Copied!
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                Copy for Notion
+              </>
+            )}
+          </button>
           {onNewAnalysis && data.clientProfile && (
             <button
               onClick={onNewAnalysis}
