@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ClientProfile } from '../types';
 import { dbService, ClientMeetingMapping, NotificationPreferences } from '../services/dbService';
+import { toast } from '../utils/toast';
 
 interface FathomIntegrationSettingsProps {
   client: ClientProfile;
@@ -50,14 +51,34 @@ export const FathomIntegrationSettings: React.FC<FathomIntegrationSettingsProps>
     }
   };
 
+  // Email validation regex
+  const isValidEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
   const handleAddEmail = () => {
-    if (emailInput && !mapping.participantEmails?.includes(emailInput)) {
-      setMapping({
-        ...mapping,
-        participantEmails: [...(mapping.participantEmails || []), emailInput],
-      });
-      setEmailInput('');
+    if (!emailInput) {
+      toast.warning('Please enter an email address');
+      return;
     }
+
+    if (!isValidEmail(emailInput)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
+    if (mapping.participantEmails?.includes(emailInput)) {
+      toast.warning('This email is already added');
+      return;
+    }
+
+    setMapping({
+      ...mapping,
+      participantEmails: [...(mapping.participantEmails || []), emailInput],
+    });
+    setEmailInput('');
+    toast.success('Email added successfully');
   };
 
   const handleRemoveEmail = (email: string) => {
@@ -68,15 +89,21 @@ export const FathomIntegrationSettings: React.FC<FathomIntegrationSettingsProps>
   };
 
   const handleSave = async () => {
+    // Validate pod leader email if provided
+    if (notifications.podLeaderEmail && !isValidEmail(notifications.podLeaderEmail)) {
+      toast.error('Please enter a valid pod leader email address');
+      return;
+    }
+
     setSaving(true);
     try {
       await dbService.setClientMapping(mapping);
       await dbService.setNotificationPreferences(notifications);
-      alert('Fathom integration settings saved successfully!');
+      toast.success('Fathom integration settings saved successfully!');
       onClose();
     } catch (error) {
       console.error('Error saving settings:', error);
-      alert('Failed to save settings. Please try again.');
+      toast.error('Failed to save settings. Please try again.');
     } finally {
       setSaving(false);
     }

@@ -121,9 +121,47 @@ export const fathomWebhook = functions.https.onRequest(async (req, res) => {
 /**
  * Find client ID for a given meeting
  */
+/**
+ * API endpoint for frontend analysis requests
+ * This keeps the Gemini API key server-side only
+ */
+export const analyzeTranscripts = functions.https.onCall(async (data, context) => {
+  // Verify authentication
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  const geminiApiKey = process.env.GEMINI_API_KEY;
+  if (!geminiApiKey) {
+    throw new functions.https.HttpsError('failed-precondition', 'Gemini API not configured');
+  }
+
+  const { transcriptData } = data;
+
+  if (!transcriptData || !transcriptData.oldest || !transcriptData.middle || !transcriptData.recent) {
+    throw new functions.https.HttpsError('invalid-argument', 'All three transcripts are required');
+  }
+
+  try {
+    const geminiService = new GeminiService(geminiApiKey);
+    const result = await geminiService.analyzeRelationship(transcriptData);
+    return { success: true, result };
+  } catch (error) {
+    console.error('Analysis failed:', error);
+    throw new functions.https.HttpsError('internal', 'Analysis failed');
+  }
+});
+
+interface MeetingData {
+  id: string;
+  participants?: string[];
+  title?: string;
+  meeting_title?: string;
+}
+
 async function findClientForMeeting(
   dbService: DatabaseService,
-  meeting: any
+  meeting: MeetingData
 ): Promise<string | null> {
   // Strategy 1: Check by participant emails
   const participants = meeting.participants || [];

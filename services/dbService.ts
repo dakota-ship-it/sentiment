@@ -161,9 +161,16 @@ export const dbService = {
     setClientMapping: async (mapping: ClientMeetingMapping): Promise<void> => {
         try {
             const docRef = doc(db, "client_mappings", mapping.clientId);
-            await updateDoc(docRef, mapping as any).catch(async () => {
+            const mappingData: Partial<ClientMeetingMapping> = {
+                clientId: mapping.clientId,
+                participantEmails: mapping.participantEmails,
+                titlePattern: mapping.titlePattern,
+                fathomMeetingIds: mapping.fathomMeetingIds,
+                autoDetect: mapping.autoDetect
+            };
+            await updateDoc(docRef, mappingData).catch(async () => {
                 // If document doesn't exist, create it
-                await setDoc(docRef, mapping as any);
+                await setDoc(docRef, mappingData);
             });
         } catch (error) {
             console.error("Error setting client mapping:", error);
@@ -190,9 +197,16 @@ export const dbService = {
     setNotificationPreferences: async (prefs: NotificationPreferences): Promise<void> => {
         try {
             const docRef = doc(db, "notification_preferences", prefs.clientId);
-            await updateDoc(docRef, prefs as any).catch(async () => {
+            const prefsData: Partial<NotificationPreferences> = {
+                clientId: prefs.clientId,
+                podLeaderEmail: prefs.podLeaderEmail,
+                notifyOnNewTranscript: prefs.notifyOnNewTranscript,
+                notifyOnAutoAnalysis: prefs.notifyOnAutoAnalysis,
+                slackWebhookUrl: prefs.slackWebhookUrl
+            };
+            await updateDoc(docRef, prefsData).catch(async () => {
                 // If document doesn't exist, create it
-                await setDoc(docRef, prefs as any);
+                await setDoc(docRef, prefsData);
             });
         } catch (error) {
             console.error("Error setting notification preferences:", error);

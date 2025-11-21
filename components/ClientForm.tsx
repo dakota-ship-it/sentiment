@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { ClientProfile } from '../types';
-import { clientService } from '../services/clientService';
 import { dbService } from '../services/dbService';
 import { auth } from '../services/firebase';
+import { toast } from '../utils/toast';
 
 interface ClientFormProps {
   initialData?: ClientProfile;
@@ -46,13 +46,15 @@ export const ClientForm: React.FC<ClientFormProps> = ({ initialData, onSave, onC
     try {
       if (initialData) {
         await dbService.updateClient(initialData.id, formData);
+        toast.success('Client profile updated successfully!');
       } else {
         await dbService.addClient(auth.currentUser.uid, formData);
+        toast.success('Client profile created successfully!');
       }
       onSave();
     } catch (error) {
       console.error("Failed to save client", error);
-      alert("Failed to save client. Please try again.");
+      toast.error("Failed to save client. Please try again.");
     }
   };
 

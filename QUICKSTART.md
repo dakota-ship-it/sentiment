@@ -71,6 +71,4 @@ After 3 meetings with a client, analysis will auto-trigger and notify your pod l
 
 **Having issues?** See [FATHOM_INTEGRATION_SETUP.md](./FATHOM_INTEGRATION_SETUP.md) for detailed troubleshooting.
 
-**Your Credentials** (already configured in the script):
-- Fathom API Key: `S8bwt0LWVoO4Pqpq_zYVXA.JEU...`
-- Webhook Secret: `whsec_LK1wNxXDqio7Xv7j2x1C...`
+**Security Note:** Never commit API keys or secrets to version control. Store credentials in environment variables or use Firebase's secret management.

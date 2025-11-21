@@ -9,9 +9,10 @@ const Auth: React.FC = () => {
         try {
             const provider = new GoogleAuthProvider();
             await signInWithPopup(auth, provider);
-        } catch (err: any) {
+        } catch (err) {
             console.error("Login failed:", err);
-            setError(err.message || "Failed to login with Google");
+            const errorMessage = err instanceof Error ? err.message : "Failed to login with Google";
+            setError(errorMessage);
         }
     };
 

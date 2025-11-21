@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ClientProfile } from '../types';
 import { dbService } from '../services/dbService';
 import { FathomIntegrationSettings } from './FathomIntegrationSettings';
+import { logger } from '../utils/logger';
 
 interface ClientDashboardProps {
   onSelectClient: (client: ClientProfile) => void;
@@ -33,10 +34,13 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
   useEffect(() => {
     const loadClientsWithSentiment = async () => {
       try {
-        console.log("Loading all clients for organization");
+        logger.debug("Loading all clients for organization");
         const clientData = await dbService.getClients();
 
-        // Load latest analysis for each client
+        // Note: This creates N+1 queries (one for clients, one per client for analysis)
+        // Firestore doesn't support batch querying across different client analyses easily
+        // Consider implementing a denormalized "latest_analysis" field on client documents
+        // or using a Cloud Function to maintain a summary collection
         const clientsWithSentiment = await Promise.all(
           clientData.map(async (client) => {
             try {
@@ -55,7 +59,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
               }
               return client;
             } catch (error) {
-              console.error(`Failed to load analysis for ${client.name}`, error);
+              logger.error(`Failed to load analysis for ${client.name}`, error);
               return client;
             }
           })
@@ -63,7 +67,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
 
         setClients(clientsWithSentiment);
       } catch (error) {
-        console.error("Failed to load clients", error);
+        logger.error("Failed to load clients", error);
       }
       setLoading(false);
     };
@@ -79,7 +83,8 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
     }
   };
 
-  const getRiskColor = (risk: string) => {
+  // Memoize helper functions to avoid recreation on every render
+  const getRiskColor = useCallback((risk: string) => {
     switch (risk) {
       case 'Low': return 'bg-green-500/20 text-green-400 border-green-500/30';
       case 'Medium': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
@@ -87,9 +92,9 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
       case 'Immediate': return 'bg-red-500/20 text-red-400 border-red-500/30';
       default: return 'bg-brand-muted/20 text-brand-muted border-brand-muted/30';
     }
-  };
+  }, []);
 
-  const getTrajectoryIcon = (trajectory: string) => {
+  const getTrajectoryIcon = useCallback((trajectory: string) => {
     switch (trajectory) {
       case 'Strengthening': return '↗';
       case 'Stable': return '→';
@@ -97,7 +102,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({
       case 'Critical': return '⚠';
       default: return '—';
     }
-  };
+  }, []);
 
   const groupedClients = PODS.reduce((acc, pod) => {
     acc[pod] = clients.filter(c => c.pod === pod);
