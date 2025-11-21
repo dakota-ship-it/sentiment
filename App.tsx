@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { TranscriptData, AnalysisStep, AnalysisResult, ClientProfile } from './types';
-import { analyzeRelationship } from './services/geminiService';
+import { analyzeRelationship, generateCumulativeSummary } from './services/geminiService';
 import ProgressBar from './components/ProgressBar';
 import InputStep from './components/InputStep';
 import AnalysisDashboard from './components/AnalysisDashboard';
@@ -34,6 +34,7 @@ const App: React.FC = () => {
   });
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [currentAnalysisId, setCurrentAnalysisId] = useState<string | null>(null);
 
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -65,6 +66,7 @@ const App: React.FC = () => {
     // Try to load the most recent analysis for this client
     try {
       const history = await dbService.getAnalysisHistory(client.id);
+      const analysisId = await dbService.getMostRecentAnalysisId(client.id);
       console.log("Analysis history loaded:", history.length, "items");
 
       if (history.length > 0) {
@@ -73,11 +75,13 @@ const App: React.FC = () => {
         console.log("Showing most recent analysis from", mostRecent.date);
         setData(mostRecent.transcriptData);
         setResult(mostRecent.result);
+        setCurrentAnalysisId(analysisId);
         setView('ANALYSIS');
         setStep(AnalysisStep.Results);
       } else {
         console.log("No previous analysis found, starting new one");
         // No previous analysis, start a new one
+        setCurrentAnalysisId(null);
         setData({
           oldest: '',
           middle: '',
@@ -91,6 +95,7 @@ const App: React.FC = () => {
     } catch (error) {
       console.error("Failed to load analysis history", error);
       // Fallback to new analysis
+      setCurrentAnalysisId(null);
       setData({
         oldest: '',
         middle: '',
@@ -108,17 +113,62 @@ const App: React.FC = () => {
       // Start Analysis
       setStep(AnalysisStep.Analyzing);
       try {
-        const analysis = await analyzeRelationship(data);
+        // Load historical context if available
+        let dataWithHistory = { ...data };
+        if (data.clientProfile) {
+          const history = await dbService.getRelationshipHistory(data.clientProfile.id);
+          if (history && history.cumulativeSummary) {
+            // Calculate trajectory trend
+            const recentTrajectories = history.trajectoryHistory.slice(-5);
+            const trajectoryTrend = recentTrajectories.length > 1
+              ? `${recentTrajectories[0].trajectory} → ${recentTrajectories[recentTrajectories.length - 1].trajectory} over ${recentTrajectories.length} analyses`
+              : 'First analysis';
+
+            dataWithHistory = {
+              ...data,
+              historicalContext: {
+                cumulativeSummary: history.cumulativeSummary,
+                totalPreviousMeetings: history.totalMeetingsAnalyzed,
+                trajectoryTrend,
+                keyHistoricalMoments: history.keyMoments.slice(-5).map(m => `${m.quote} (${m.significance})`)
+              }
+            };
+          }
+        }
+
+        const analysis = await analyzeRelationship(dataWithHistory);
         setResult(analysis);
 
-        // Save to DB if we have a client and user
+        // Save to DB and update rolling history if we have a client and user
         if (data.clientProfile && auth.currentUser) {
+          // Save the analysis and store the ID for potential re-runs
           dbService.saveAnalysis(
             auth.currentUser.uid,
             data.clientProfile.id,
             analysis,
-            data
-          ).catch(err => console.error("Failed to save analysis history", err));
+            dataWithHistory
+          ).then(id => setCurrentAnalysisId(id))
+          .catch(err => console.error("Failed to save analysis history", err));
+
+          // Update rolling summary (async, don't block UI)
+          (async () => {
+            try {
+              const existingHistory = await dbService.getRelationshipHistory(data.clientProfile!.id);
+              const newSummary = await generateCumulativeSummary(
+                analysis,
+                existingHistory?.cumulativeSummary || null,
+                existingHistory?.totalMeetingsAnalyzed || 0
+              );
+              await dbService.updateRelationshipHistoryFromAnalysis(
+                data.clientProfile!.id,
+                analysis,
+                newSummary
+              );
+              console.log("Rolling history updated successfully");
+            } catch (err) {
+              console.error("Failed to update rolling history", err);
+            }
+          })();
         }
 
         setStep(AnalysisStep.Results);
@@ -214,6 +264,97 @@ const App: React.FC = () => {
         setResult(null);
         setStep(AnalysisStep.OldestTranscript);
       }
+    }
+  };
+
+  const handleRerunWithFeedback = async (feedback: { inaccuracies?: string; additionalContext?: string; focusAreas?: string[] }) => {
+    // Re-run analysis with feedback from pod leader
+    setStep(AnalysisStep.Analyzing);
+    try {
+      const updatedData = {
+        ...data,
+        feedback
+      };
+      setData(updatedData);
+      const analysis = await analyzeRelationship(updatedData);
+      setResult(analysis);
+
+      // Update existing analysis or save new one
+      if (data.clientProfile && auth.currentUser) {
+        if (currentAnalysisId) {
+          // Update the existing analysis so clicking back shows the corrected version
+          dbService.updateAnalysis(
+            currentAnalysisId,
+            analysis,
+            updatedData
+          ).catch(err => console.error("Failed to update analysis", err));
+        } else {
+          // No existing analysis, create new one
+          dbService.saveAnalysis(
+            auth.currentUser.uid,
+            data.clientProfile.id,
+            analysis,
+            updatedData
+          ).then(id => setCurrentAnalysisId(id))
+           .catch(err => console.error("Failed to save analysis", err));
+        }
+
+        // Also update rolling history with the corrected analysis
+        (async () => {
+          try {
+            const existingHistory = await dbService.getRelationshipHistory(data.clientProfile!.id);
+            const newSummary = await generateCumulativeSummary(
+              analysis,
+              existingHistory?.cumulativeSummary || null,
+              existingHistory?.totalMeetingsAnalyzed || 0
+            );
+            await dbService.updateRelationshipHistoryFromAnalysis(
+              data.clientProfile!.id,
+              analysis,
+              newSummary
+            );
+            console.log("Rolling history updated with feedback corrections");
+          } catch (err) {
+            console.error("Failed to update rolling history", err);
+          }
+        })();
+      }
+
+      setStep(AnalysisStep.Results);
+    } catch (err) {
+      setError("Failed to re-analyze with feedback. Please try again.");
+      setStep(AnalysisStep.Results); // Go back to results
+    }
+  };
+
+  const handleAddTranscripts = async (transcripts: string[]) => {
+    // Add additional transcripts and re-run analysis
+    setStep(AnalysisStep.Analyzing);
+    try {
+      const existingAdditional = data.additionalTranscripts || [];
+      const updatedData = {
+        ...data,
+        additionalTranscripts: [...existingAdditional, ...transcripts]
+      };
+      setData(updatedData);
+      const analysis = await analyzeRelationship(updatedData);
+      setResult(analysis);
+
+      // Save to DB if we have a client and user, and store the ID
+      if (data.clientProfile && auth.currentUser) {
+        dbService.saveAnalysis(
+          auth.currentUser.uid,
+          data.clientProfile.id,
+          analysis,
+          updatedData
+        ).then(id => setCurrentAnalysisId(id))
+        .catch(err => console.error("Failed to save analysis history", err));
+      }
+
+      setStep(AnalysisStep.Results);
+    } catch (err) {
+      setError("Failed to analyze with additional transcripts. Please try again.");
+      setStep(AnalysisStep.Results); // Go back to results
     }
   };
 
@@ -360,6 +501,8 @@ const App: React.FC = () => {
                     data={data}
                     onReset={handleReturnToDashboard}
                     onNewAnalysis={handleNewAnalysis}
+                    onRerunWithFeedback={handleRerunWithFeedback}
+                    onAddTranscripts={handleAddTranscripts}
                   />
                 </div>
               )}

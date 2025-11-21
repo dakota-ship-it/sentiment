@@ -11,7 +11,7 @@ import {
     Timestamp
 } from "firebase/firestore";
 import { db } from "./firebase";
-import { ClientProfile, AnalysisResult, TranscriptData } from "../types";
+import { ClientProfile, AnalysisResult, TranscriptData, ClientRelationshipHistory } from "../types";
 
 // Collection References
 const clientsRef = collection(db, "clients");
@@ -19,6 +19,7 @@ const analysesRef = collection(db, "analyses");
 const clientMappingsRef = collection(db, "client_mappings");
 const transcriptQueuesRef = collection(db, "transcript_queues");
 const notificationPrefsRef = collection(db, "notification_preferences");
+const relationshipHistoryRef = collection(db, "relationship_history");
 
 // Types for DB
 interface DBClient extends ClientProfile {
@@ -122,6 +123,42 @@ export const dbService = {
         }
     },
 
+    // Update an existing analysis (for re-runs with feedback)
+    updateAnalysis: async (analysisId: string, result: AnalysisResult, transcriptData: TranscriptData): Promise<void> => {
+        try {
+            const docRef = doc(db, "analyses", analysisId);
+            await updateDoc(docRef, {
+                result,
+                transcriptData,
+                date: Timestamp.now() // Update timestamp to reflect the re-run
+            });
+        } catch (error) {
+            console.error("Error updating analysis:", error);
+            throw error;
+        }
+    },
+
+    // Get the most recent analysis ID for a client
+    getMostRecentAnalysisId: async (clientId: string): Promise<string | null> => {
+        try {
+            const q = query(
+                analysesRef,
+                where("clientId", "==", clientId),
+                limit(5)
+            );
+            const snapshot = await getDocs(q);
+            if (snapshot.empty) return null;
+            // Sort by date and return the most recent ID
+            const sorted = snapshot.docs.sort((a, b) =>
+                b.data().date.toMillis() - a.data().date.toMillis()
+            );
+            return sorted[0].id;
+        } catch (error) {
+            console.error("Error getting analysis ID:", error);
+            return null;
+        }
+    },
+
     // Get analysis history for a client
     getAnalysisHistory: async (clientId: string): Promise<DBAnalysis[]> => {
         try {
@@ -212,6 +249,127 @@ export const dbService = {
         } catch (error) {
             console.error("Error fetching transcript queue:", error);
             return null;
+        }
+    },
+
+    // ============ Relationship History Methods (Rolling Summary) ============
+
+    // Get relationship history for a client
+    getRelationshipHistory: async (clientId: string): Promise<ClientRelationshipHistory | null> => {
+        try {
+            const docRef = doc(db, "relationship_history", clientId);
+            const docSnap = await getDocs(query(relationshipHistoryRef, where("clientId", "==", clientId)));
+            if (docSnap.empty) {
+                return null;
+            }
+            return docSnap.docs[0].data() as ClientRelationshipHistory;
+        } catch (error) {
+            console.error("Error fetching relationship history:", error);
+            return null;
+        }
+    },
+
+    // Save or update relationship history
+    saveRelationshipHistory: async (history: ClientRelationshipHistory): Promise<void> => {
+        try {
+            const docRef = doc(db, "relationship_history", history.clientId);
+            await setDoc(docRef, {
+                ...history,
+                lastUpdated: Date.now()
+            });
+        } catch (error) {
+            console.error("Error saving relationship history:", error);
+            throw error;
+        }
+    },
+
+    // Update cumulative summary after an analysis
+    updateRelationshipHistoryFromAnalysis: async (
+        clientId: string,
+        analysisResult: AnalysisResult,
+        newSummaryText: string
+    ): Promise<void> => {
+        try {
+            const existing = await dbService.getRelationshipHistory(clientId);
+            const now = new Date().toISOString();
+
+            const updated: ClientRelationshipHistory = existing ? {
+                ...existing,
+                cumulativeSummary: newSummaryText,
+                // Add new trajectory point
+                trajectoryHistory: [
+                    ...existing.trajectoryHistory,
+                    {
+                        date: now,
+                        trajectory: analysisResult.bottomLine.trajectory,
+                        churnRisk: analysisResult.bottomLine.churnRisk,
+                        confidence: analysisResult.bottomLine.clientConfidence
+                    }
+                ].slice(-50), // Keep last 50 data points
+                // Update key moments - keep top 15 most significant
+                keyMoments: [
+                    ...existing.keyMoments,
+                    ...analysisResult.criticalMoments.slice(0, 3).map(m => ({
+                        date: now,
+                        quote: m.quote,
+                        significance: m.deepMeaning,
+                        sentiment: 'negative' as const // Simplified
+                    }))
+                ].slice(-15),
+                // Update participant profiles
+                participantProfiles: analysisResult.communicationStyles?.map(cs => {
+                    const existingProfile = existing.participantProfiles.find(p => p.name === cs.participant);
+                    return {
+                        name: cs.participant,
+                        currentStyle: cs.style,
+                        styleHistory: [
+                            ...(existingProfile?.styleHistory || []),
+                            { date: now, style: cs.style }
+                        ].slice(-20),
+                        notes: cs.evolution
+                    };
+                }) || existing.participantProfiles,
+                totalMeetingsAnalyzed: existing.totalMeetingsAnalyzed + 1,
+                lastAnalysisDate: now,
+                lastUpdated: Date.now()
+            } : {
+                // Create new history
+                clientId,
+                cumulativeSummary: newSummaryText,
+                keyMoments: analysisResult.criticalMoments.slice(0, 3).map(m => ({
+                    date: now,
+                    quote: m.quote,
+                    significance: m.deepMeaning,
+                    sentiment: 'negative' as const
+                })),
+                actionItemHistory: analysisResult.meetingActionItems?.map(ai => ({
+                    item: ai.item,
+                    dateIdentified: now,
+                    status: ai.status === 'in-progress' ? 'pending' : ai.status as 'completed' | 'pending' | 'dropped',
+                    owner: ai.owner
+                })) || [],
+                trajectoryHistory: [{
+                    date: now,
+                    trajectory: analysisResult.bottomLine.trajectory,
+                    churnRisk: analysisResult.bottomLine.churnRisk,
+                    confidence: analysisResult.bottomLine.clientConfidence
+                }],
+                participantProfiles: analysisResult.communicationStyles?.map(cs => ({
+                    name: cs.participant,
+                    currentStyle: cs.style,
+                    styleHistory: [{ date: now, style: cs.style }],
+                    notes: cs.evolution
+                })) || [],
+                totalMeetingsAnalyzed: 1,
+                firstAnalysisDate: now,
+                lastAnalysisDate: now,
+                lastUpdated: Date.now()
+            };
+
+            await dbService.saveRelationshipHistory(updated);
+        } catch (error) {
+            console.error("Error updating relationship history:", error);
+            throw error;
         }
     }
 };

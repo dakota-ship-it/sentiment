@@ -1,13 +1,46 @@
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
 const SYSTEM_INSTRUCTION = `
-You are a client relationship analyst specializing in detecting subtle emotional and psychological signals that indicate relationship health in agency-client relationships.
-Your job is to analyze meeting transcripts and identify warning signs that someone focused purely on tactics and metrics would miss.
-You help agency account managers understand what their clients are REALLY thinking and feeling.
+You are a client relationship analyst who helps agency teams understand the health of their client relationships over time.
+
+Your job is to:
+- Detect patterns and shifts in engagement, tone, and content of conversation across multiple meetings.
+- Separate observable facts (what was said / done) from your interpretations (what it might mean).
+- Offer calm, professional, and psychologically informed hypotheses about relationship health and risk.
+- Suggest practical, respectful actions the account team can take to strengthen trust and alignment.
 
 You will be provided with three transcripts (Oldest, Middle, Recent) and context about the client.
 Analyze the trajectory across these three points in time.
-Be direct, honest, and psychological in your assessment. Don't sugarcoat.
+
+Tone and style:
+- Be candid and clear, but neutral and non-judgmental.
+- Do NOT dramatize or speculate wildly; avoid mind-reading.
+- Use probabilistic language ("this likely suggests…", "this could mean…") instead of absolute claims.
+- When describing risk (e.g., churn), be straightforward but constructive: focus on what can still be influenced.
+
+When you give interpretations:
+- Explicitly distinguish between: (1) what is observable in the transcripts, and (2) your best interpretation of those observations.
+- Assume the client is generally reasonable and acting in good faith, even if they're frustrated or anxious.
+- Avoid blaming language about the client or the agency; frame issues as misalignment, unmet expectations, or unclear communication.
+
+Your ultimate goal is to:
+- Help the team see subtle signals they might miss.
+- Provide a grounded view of relationship health.
+- Recommend specific actions and language that could improve the relationship.
+
+SARCASM & PASSIVE-AGGRESSIVE DETECTION:
+Pay attention to sarcasm, passive-aggressive comments, backhanded compliments, and dismissive language as potential signals of underlying concerns. Look for:
+- Saying "fine" or "great" in a context that suggests hesitation
+- Comments that seem positive but may carry undertones of frustration
+- Dismissive phrases like "whatever you think is best" when disengaged
+- Phrases that could indicate unspoken concerns
+Note: Always use probabilistic language when interpreting these signals.
+
+COMMUNICATION STYLE ANALYSIS:
+Analyze each key participant's communication style and how it evolves across the meetings. Look for shifts in engagement patterns.
+
+ACTION ITEM TRACKING:
+Extract action items, commitments, and follow-ups ONLY from the most recent transcript. These are the current open items that need attention.
 `;
 
 const ANALYSIS_SCHEMA = {
@@ -26,13 +59,13 @@ const ANALYSIS_SCHEMA = {
     subtleSignals: {
       type: SchemaType.OBJECT,
       properties: {
-        languagePatterns: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "Shifts in commitment, ownership, or hedging." },
-        energyFlags: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "Tone, answers, multitasking signals." },
-        trustErosion: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "New decision makers, comparisons, questioning agreements." },
-        financialAnxiety: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "Budget mentions, pressure indicators." },
-        disappeared: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "Strategic talks, sharing wins, future planning." },
+        languagePatterns: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "Notable shifts in commitment, ownership, or hedging (both positive and negative)." },
+        energyFlags: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "Signals in tone, responsiveness, multitasking, or enthusiasm." },
+        trustConcerns: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "Moments that may indicate emerging doubts (new decision makers, comparisons, repeated clarifications)." },
+        financialAnxiety: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "Budget pressure, cash flow concerns, or risk sensitivity mentioned or implied." },
+        positiveSignals: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "Evidence of trust, partnership, or long-term thinking that is still present." },
       },
-      required: ["languagePatterns", "energyFlags", "trustErosion", "financialAnxiety", "disappeared"],
+      required: ["languagePatterns", "energyFlags", "trustConcerns", "financialAnxiety", "positiveSignals"],
     },
     criticalMoments: {
       type: SchemaType.ARRAY,
@@ -40,11 +73,13 @@ const ANALYSIS_SCHEMA = {
         type: SchemaType.OBJECT,
         properties: {
           quote: { type: SchemaType.STRING },
-          surfaceRead: { type: SchemaType.STRING, description: "What a low-EQ person thinks this means." },
-          deepMeaning: { type: SchemaType.STRING, description: "The real signal." },
-          implication: { type: SchemaType.STRING, description: "Why it matters." },
+          surfaceRead: { type: SchemaType.STRING, description: "What someone focused only on metrics might think this means." },
+          deepMeaning: { type: SchemaType.STRING, description: "Your more nuanced interpretation. Use 'likely / may / could' language." },
+          implication: { type: SchemaType.STRING, description: "Why it matters for relationship health and what it suggests might happen next." },
+          confidence: { type: SchemaType.STRING, enum: ["Low", "Medium", "High"], description: "How confident you are in this interpretation." },
+          type: { type: SchemaType.STRING, description: "Label the moment, e.g. 'trust', 'strategy', 'financial', 'communication'." },
         },
-        required: ["quote", "surfaceRead", "deepMeaning", "implication"],
+        required: ["quote", "surfaceRead", "deepMeaning", "implication", "confidence"],
       },
     },
     bottomLine: {
@@ -52,11 +87,12 @@ const ANALYSIS_SCHEMA = {
       properties: {
         trajectory: { type: SchemaType.STRING, enum: ["Strengthening", "Stable", "Declining", "Critical"] },
         churnRisk: { type: SchemaType.STRING, enum: ["Low", "Medium", "High", "Immediate"] },
-        clientConfidence: { type: SchemaType.INTEGER, description: "Score from 1 to 10" },
-        whatsReallyGoingOn: { type: SchemaType.STRING, description: "One sentence - what are they worried about that they're not saying?" },
-        realReasonIfChurn: { type: SchemaType.STRING, description: "Strip away polite excuses - what's the actual issue?" },
+        clientConfidence: { type: SchemaType.INTEGER, description: "Score from 1 to 10 (your best estimate of their confidence in the partnership)." },
+        confidenceInAssessment: { type: SchemaType.STRING, enum: ["Low", "Medium", "High"], description: "How confident you are in your overall read, based on clarity and consistency of signals." },
+        whatsReallyGoingOn: { type: SchemaType.STRING, description: "One sentence: the core tension or worry from the client's perspective. Phrase as a hypothesis (e.g. 'They're probably worried that…')." },
+        likelyUnderlyingDriverIfChurn: { type: SchemaType.STRING, description: "If they were to pause or leave, what would most likely be the main driver from their perspective? Phrase as a hypothesis, not a judgment." },
       },
-      required: ["trajectory", "churnRisk", "clientConfidence", "whatsReallyGoingOn", "realReasonIfChurn"],
+      required: ["trajectory", "churnRisk", "clientConfidence", "confidenceInAssessment", "whatsReallyGoingOn", "likelyUnderlyingDriverIfChurn"],
     },
     actionPlan: {
       type: SchemaType.ARRAY,
@@ -65,13 +101,56 @@ const ANALYSIS_SCHEMA = {
         properties: {
           action: { type: SchemaType.STRING },
           why: { type: SchemaType.STRING },
-          how: { type: SchemaType.STRING, description: "Exact language/approach to use." },
+          how: { type: SchemaType.STRING, description: "Exact language/approach to use. Phrase as collaborative and respectful (e.g. 'Can we align on…', 'Would it be helpful if we…')." },
         },
         required: ["action", "why", "how"],
       },
     },
+    meetingActionItems: {
+      type: SchemaType.ARRAY,
+      description: "Action items, commitments, and follow-ups extracted from the MOST RECENT transcript only",
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          item: { type: SchemaType.STRING, description: "The specific action item or commitment" },
+          owner: { type: SchemaType.STRING, description: "Who is responsible: 'agency' or 'client'" },
+          status: { type: SchemaType.STRING, enum: ["pending", "in-progress"], description: "Current status of the action item" },
+          notes: { type: SchemaType.STRING, description: "Context about the item or why it matters" },
+        },
+        required: ["item", "owner", "status", "notes"],
+      },
+    },
+    communicationStyles: {
+      type: SchemaType.ARRAY,
+      description: "Communication style analysis for key participants",
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          participant: { type: SchemaType.STRING, description: "Name or role of the participant" },
+          style: { type: SchemaType.STRING, enum: ["direct", "passive", "collaborative", "defensive", "disengaged"] },
+          traits: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "Specific communication traits observed" },
+          evolution: { type: SchemaType.STRING, description: "How their communication style changed across the transcripts" },
+        },
+        required: ["participant", "style", "traits", "evolution"],
+      },
+    },
+    sarcasmInstances: {
+      type: SchemaType.ARRAY,
+      description: "Detected instances of sarcasm, passive-aggressive comments, or dismissive language",
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          quote: { type: SchemaType.STRING, description: "The exact quote from the transcript" },
+          source: { type: SchemaType.STRING, enum: ["oldest", "middle", "recent"] },
+          type: { type: SchemaType.STRING, enum: ["sarcasm", "passive-aggressive", "backhanded-compliment", "dismissive"] },
+          underlyingMeaning: { type: SchemaType.STRING, description: "What they really meant" },
+          severity: { type: SchemaType.STRING, enum: ["mild", "moderate", "severe"] },
+        },
+        required: ["quote", "source", "type", "underlyingMeaning", "severity"],
+      },
+    },
   },
-  required: ["trajectoryAnalysis", "subtleSignals", "criticalMoments", "bottomLine", "actionPlan"],
+  required: ["trajectoryAnalysis", "subtleSignals", "criticalMoments", "bottomLine", "actionPlan", "meetingActionItems", "communicationStyles", "sarcasmInstances"],
 };
 
 interface TranscriptData {
@@ -84,6 +163,12 @@ interface TranscriptData {
     monthlySpend: string;
     duration: string;
     notes: string;
+  };
+  additionalTranscripts?: string[];
+  feedback?: {
+    inaccuracies?: string;
+    additionalContext?: string;
+    focusAreas?: string[];
   };
 }
 
@@ -106,6 +191,30 @@ export class GeminiService {
       }
       contextSection += `Additional User Notes: ${data.context || "None provided."}\n`;
 
+      // Build additional transcripts section if provided
+      let additionalTranscriptsSection = "";
+      if (data.additionalTranscripts && data.additionalTranscripts.length > 0) {
+        additionalTranscriptsSection = "\nADDITIONAL TRANSCRIPTS (for deeper context):\n";
+        data.additionalTranscripts.forEach((transcript, idx) => {
+          additionalTranscriptsSection += `\nADDITIONAL TRANSCRIPT ${idx + 1}:\n${transcript}\n`;
+        });
+      }
+
+      // Build feedback section if this is a re-run
+      let feedbackSection = "";
+      if (data.feedback) {
+        feedbackSection = "\nPOD LEADER FEEDBACK (incorporate this into your analysis):\n";
+        if (data.feedback.inaccuracies) {
+          feedbackSection += `Previous analysis inaccuracies to correct: ${data.feedback.inaccuracies}\n`;
+        }
+        if (data.feedback.additionalContext) {
+          feedbackSection += `Additional context: ${data.feedback.additionalContext}\n`;
+        }
+        if (data.feedback.focusAreas && data.feedback.focusAreas.length > 0) {
+          feedbackSection += `Focus areas for this analysis: ${data.feedback.focusAreas.join(", ")}\n`;
+        }
+      }
+
       // Construct the prompt content
       const promptText = `
         Here is the data for analysis:
@@ -120,8 +229,12 @@ export class GeminiService {
 
         TRANSCRIPT 3 (RECENT - Most recent meeting):
         ${data.recent}
+        ${additionalTranscriptsSection}
+        ${feedbackSection}
 
         Analyze the trajectory and provide the psychological report based on the schema.
+
+        Important: Pay special attention to sarcasm, passive-aggressive comments, and communication style shifts. Extract all action items and track their status across meetings.
       `;
 
       const model = this.ai.getGenerativeModel({
