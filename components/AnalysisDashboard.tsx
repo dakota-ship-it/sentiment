@@ -262,6 +262,44 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onR
         </div>
       </div>
 
+      {/* Personality-Based Blind Spots */}
+      {result.blindSpotsForYourPersonality && (
+        <div className="bg-purple-900/20 border border-purple-500/40 rounded-xl p-8 mb-8 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-1 h-full bg-purple-500"></div>
+          <h3 className="text-lg font-bold text-purple-300 mb-4 flex items-center gap-2">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+            Your Personality Blind Spots
+          </h3>
+          <p className="text-slate-200 mb-6 italic">
+            {result.blindSpotsForYourPersonality.overview}
+          </p>
+          <div className="space-y-4">
+            <div>
+              <h4 className="text-sm font-bold text-purple-400 uppercase tracking-wider mb-3">What You Might Miss:</h4>
+              <ul className="space-y-2">
+                {result.blindSpotsForYourPersonality.specificBlindSpots.map((spot, idx) => (
+                  <li key={idx} className="flex gap-3 text-slate-300">
+                    <span className="text-purple-400 font-bold">→</span>
+                    <span>{spot}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="pt-4 border-t border-purple-500/30">
+              <h4 className="text-sm font-bold text-purple-400 uppercase tracking-wider mb-3">Pay Extra Attention To:</h4>
+              <ul className="space-y-2">
+                {result.blindSpotsForYourPersonality.whatToWatchFor.map((item, idx) => (
+                  <li key={idx} className="flex gap-3 text-slate-300">
+                    <span className="text-purple-400 font-bold">✓</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
         {/* Left Column: Critical Moments & Signals */}

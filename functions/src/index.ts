@@ -193,9 +193,21 @@ async function processAutoAnalysis(
       },
     };
 
+    // Get notification preferences and pod leader profile
+    const notificationPrefs = await dbService.getNotificationPreferences(clientId);
+    let podLeaderProfile = null;
+    if (notificationPrefs?.podLeaderEmail) {
+      try {
+        podLeaderProfile = await dbService.getPodLeaderProfileByEmail(notificationPrefs.podLeaderEmail);
+        console.log('Pod leader profile loaded:', podLeaderProfile ? 'Yes' : 'No');
+      } catch (error) {
+        console.error('Failed to load pod leader profile:', error);
+      }
+    }
+
     // Run Gemini analysis
     const geminiService = new GeminiService(geminiApiKey);
-    const analysisResult = await geminiService.analyzeRelationship(transcriptData);
+    const analysisResult = await geminiService.analyzeRelationship(transcriptData, podLeaderProfile);
 
     console.log('Analysis completed successfully');
 
@@ -213,7 +225,6 @@ async function processAutoAnalysis(
     console.log('Analysis saved to database');
 
     // Send notifications
-    const notificationPrefs = await dbService.getNotificationPreferences(clientId);
     if (notificationPrefs) {
       const notificationService = new NotificationService();
       await notificationService.notifyPodLeader(notificationPrefs, {

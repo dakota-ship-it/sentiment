@@ -41,6 +41,14 @@ Analyze each key participant's communication style and how it evolves across the
 
 ACTION ITEM TRACKING:
 Extract action items, commitments, and follow-ups ONLY from the most recent transcript. These are the current open items that need attention.
+
+PERSONALITY-BASED BLIND SPOT ANALYSIS:
+If the pod leader has provided their personality profile (Enneagram, MBTI, DISC, etc.), you should identify blind spots they might have when analyzing this relationship.
+- Consider what signals their personality type naturally emphasizes or overlooks
+- Point out specific moments in these transcripts that they might miss based on their cognitive style
+- Be specific and cite actual evidence from the transcripts
+- Frame this as helpful self-awareness, not criticism
+- Only include this section if a personality profile is provided
 `;
 
 const ANALYSIS_SCHEMA = {
@@ -149,6 +157,16 @@ const ANALYSIS_SCHEMA = {
         required: ["quote", "source", "type", "underlyingMeaning", "severity"],
       },
     },
+    blindSpotsForYourPersonality: {
+      type: SchemaType.OBJECT,
+      description: "Personality-based blind spots that the pod leader might have when analyzing this client relationship",
+      properties: {
+        overview: { type: SchemaType.STRING, description: "Brief overview of what the pod leader's personality type might naturally overlook in this specific analysis" },
+        specificBlindSpots: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "Specific signals in these transcripts that this personality type might miss or underweight" },
+        whatToWatchFor: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "Concrete things for this personality type to pay extra attention to" },
+      },
+      required: ["overview", "specificBlindSpots", "whatToWatchFor"],
+    },
   },
   required: ["trajectoryAnalysis", "subtleSignals", "criticalMoments", "bottomLine", "actionPlan", "meetingActionItems", "communicationStyles", "sarcasmInstances"],
 };
@@ -172,6 +190,16 @@ interface TranscriptData {
   };
 }
 
+interface PodLeaderProfile {
+  id: string;
+  name: string;
+  email: string;
+  pod?: string;
+  personalitySummary?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export class GeminiService {
   private ai: GoogleGenerativeAI;
 
@@ -179,7 +207,7 @@ export class GeminiService {
     this.ai = new GoogleGenerativeAI(apiKey);
   }
 
-  async analyzeRelationship(data: TranscriptData): Promise<any> {
+  async analyzeRelationship(data: TranscriptData, podLeaderProfile?: PodLeaderProfile | null): Promise<any> {
     try {
       // Build Context String
       let contextSection = "CONTEXT & BACKGROUND:\n";
@@ -215,11 +243,25 @@ export class GeminiService {
         }
       }
 
+      // Build pod leader personality section
+      let podLeaderSection = "";
+      if (podLeaderProfile?.personalitySummary) {
+        podLeaderSection = `
+POD LEADER PERSONALITY PROFILE:
+${podLeaderProfile.personalitySummary}
+
+IMPORTANT: Based on this personality profile, identify specific blind spots this pod leader might have when analyzing these transcripts.
+Point out signals they might naturally overlook or underweight given their cognitive style and personality tendencies.
+Cite specific moments from the transcripts that their personality type might miss.
+`;
+      }
+
       // Construct the prompt content
       const promptText = `
         Here is the data for analysis:
 
         ${contextSection}
+        ${podLeaderSection}
 
         TRANSCRIPT 1 (OLDEST - 3 meetings ago):
         ${data.oldest}
@@ -235,6 +277,7 @@ export class GeminiService {
         Analyze the trajectory and provide the psychological report based on the schema.
 
         Important: Pay special attention to sarcasm, passive-aggressive comments, and communication style shifts. Extract all action items and track their status across meetings.
+        ${podLeaderProfile?.personalitySummary ? 'CRITICAL: Include the blindSpotsForYourPersonality section based on the pod leader personality profile provided above.' : ''}
       `;
 
       const model = this.ai.getGenerativeModel({
