@@ -217,6 +217,65 @@ const App: React.FC = () => {
     }
   };
 
+  const handleRerunWithFeedback = async (feedback: { inaccuracies?: string; additionalContext?: string; focusAreas?: string[] }) => {
+    // Re-run analysis with feedback from pod leader
+    setStep(AnalysisStep.Analyzing);
+    try {
+      const updatedData = {
+        ...data,
+        feedback
+      };
+      setData(updatedData);
+      const analysis = await analyzeRelationship(updatedData);
+      setResult(analysis);
+
+      // Save to DB if we have a client and user
+      if (data.clientProfile && auth.currentUser) {
+        dbService.saveAnalysis(
+          auth.currentUser.uid,
+          data.clientProfile.id,
+          analysis,
+          updatedData
+        ).catch(err => console.error("Failed to save analysis history", err));
+      }
+
+      setStep(AnalysisStep.Results);
+    } catch (err) {
+      setError("Failed to re-analyze with feedback. Please try again.");
+      setStep(AnalysisStep.Results); // Go back to results
+    }
+  };
+
+  const handleAddTranscripts = async (transcripts: string[]) => {
+    // Add additional transcripts and re-run analysis
+    setStep(AnalysisStep.Analyzing);
+    try {
+      const existingAdditional = data.additionalTranscripts || [];
+      const updatedData = {
+        ...data,
+        additionalTranscripts: [...existingAdditional, ...transcripts]
+      };
+      setData(updatedData);
+      const analysis = await analyzeRelationship(updatedData);
+      setResult(analysis);
+
+      // Save to DB if we have a client and user
+      if (data.clientProfile && auth.currentUser) {
+        dbService.saveAnalysis(
+          auth.currentUser.uid,
+          data.clientProfile.id,
+          analysis,
+          updatedData
+        ).catch(err => console.error("Failed to save analysis history", err));
+      }
+
+      setStep(AnalysisStep.Results);
+    } catch (err) {
+      setError("Failed to analyze with additional transcripts. Please try again.");
+      setStep(AnalysisStep.Results); // Go back to results
+    }
+  };
+
   return (
     <div className="min-h-screen bg-brand-dark text-brand-white font-sans selection:bg-brand-cyan selection:text-brand-dark">
 
@@ -360,6 +419,8 @@ const App: React.FC = () => {
                     data={data}
                     onReset={handleReturnToDashboard}
                     onNewAnalysis={handleNewAnalysis}
+                    onRerunWithFeedback={handleRerunWithFeedback}
+                    onAddTranscripts={handleAddTranscripts}
                   />
                 </div>
               )}

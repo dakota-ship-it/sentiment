@@ -19,6 +19,14 @@ export interface TranscriptData {
   recent: string;
   context: string;
   clientProfile?: ClientProfile;
+  // Additional transcripts for deeper analysis
+  additionalTranscripts?: string[];
+  // Feedback from pod leaders for re-runs
+  feedback?: {
+    inaccuracies?: string;
+    additionalContext?: string;
+    focusAreas?: string[];
+  };
 }
 
 export enum AnalysisStep {
@@ -45,6 +53,32 @@ export interface ActionItem {
   how: string;
 }
 
+// Action items extracted from meeting transcripts (commitments, follow-ups, promises)
+export interface MeetingActionItem {
+  item: string;
+  owner: string; // Who is responsible (agency or client)
+  source: 'oldest' | 'middle' | 'recent';
+  status: 'completed' | 'pending' | 'unclear' | 'dropped';
+  notes: string;
+}
+
+// Communication style analysis for key participants
+export interface CommunicationStyle {
+  participant: string;
+  style: 'direct' | 'passive' | 'collaborative' | 'defensive' | 'disengaged';
+  traits: string[];
+  evolution: string; // How their style changed across transcripts
+}
+
+// Sarcasm/passive-aggressive detection
+export interface SarcasmInstance {
+  quote: string;
+  source: 'oldest' | 'middle' | 'recent';
+  type: 'sarcasm' | 'passive-aggressive' | 'backhanded-compliment' | 'dismissive';
+  underlyingMeaning: string;
+  severity: 'mild' | 'moderate' | 'severe';
+}
+
 export interface AnalysisResult {
   trajectoryAnalysis: {
     engagement: "Increasing" | "Stable" | "Declining";
@@ -68,6 +102,10 @@ export interface AnalysisResult {
     realReasonIfChurn: string;
   };
   actionPlan: ActionItem[];
+  // New features
+  meetingActionItems: MeetingActionItem[];
+  communicationStyles: CommunicationStyle[];
+  sarcasmInstances: SarcasmInstance[];
 }
 
 export interface ChatMessage {

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { AnalysisResult, CriticalMoment, ActionItem, TranscriptData, ChatMessage } from '../types';
+import { AnalysisResult, CriticalMoment, ActionItem, TranscriptData, ChatMessage, MeetingActionItem, CommunicationStyle, SarcasmInstance } from '../types';
 import { askFollowUpQuestion } from '../services/geminiService';
 
 interface AnalysisDashboardProps {
@@ -7,13 +7,44 @@ interface AnalysisDashboardProps {
   data: TranscriptData;
   onReset: () => void;
   onNewAnalysis?: () => void;
+  onRerunWithFeedback?: (feedback: { inaccuracies?: string; additionalContext?: string; focusAreas?: string[] }) => void;
+  onAddTranscripts?: (transcripts: string[]) => void;
 }
 
-const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onReset, onNewAnalysis }) => {
+const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onReset, onNewAnalysis, onRerunWithFeedback, onAddTranscripts }) => {
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [question, setQuestion] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Feedback form state
+  const [showFeedbackForm, setShowFeedbackForm] = useState(false);
+  const [feedbackInaccuracies, setFeedbackInaccuracies] = useState('');
+  const [feedbackContext, setFeedbackContext] = useState('');
+
+  // Additional transcripts state
+  const [showAddTranscripts, setShowAddTranscripts] = useState(false);
+  const [additionalTranscript, setAdditionalTranscript] = useState('');
+
+  const handleRerunWithFeedback = () => {
+    if (onRerunWithFeedback && (feedbackInaccuracies.trim() || feedbackContext.trim())) {
+      onRerunWithFeedback({
+        inaccuracies: feedbackInaccuracies.trim() || undefined,
+        additionalContext: feedbackContext.trim() || undefined,
+      });
+      setShowFeedbackForm(false);
+      setFeedbackInaccuracies('');
+      setFeedbackContext('');
+    }
+  };
+
+  const handleAddTranscript = () => {
+    if (onAddTranscripts && additionalTranscript.trim()) {
+      onAddTranscripts([additionalTranscript.trim()]);
+      setShowAddTranscripts(false);
+      setAdditionalTranscript('');
+    }
+  };
 
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -64,7 +95,23 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onR
           <h1 className="text-3xl font-bold text-white mb-1">Relationship Diagnosis</h1>
           <p className="text-brand-muted font-mono text-sm">SENTIMENT AI ANALYSIS</p>
         </div>
-        <div className="flex gap-3 mt-4 md:mt-0">
+        <div className="flex flex-wrap gap-3 mt-4 md:mt-0">
+          {onAddTranscripts && (
+            <button
+              onClick={() => setShowAddTranscripts(!showAddTranscripts)}
+              className="text-sm px-4 py-2 bg-brand-surface border border-brand-green text-brand-green hover:bg-brand-green hover:text-brand-dark rounded-lg transition-all font-medium"
+            >
+              Add Transcripts
+            </button>
+          )}
+          {onRerunWithFeedback && (
+            <button
+              onClick={() => setShowFeedbackForm(!showFeedbackForm)}
+              className="text-sm px-4 py-2 bg-brand-surface border border-brand-orange text-brand-orange hover:bg-brand-orange hover:text-brand-dark rounded-lg transition-all font-medium"
+            >
+              Re-run with Feedback
+            </button>
+          )}
           {onNewAnalysis && data.clientProfile && (
             <button
               onClick={onNewAnalysis}
@@ -78,6 +125,80 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onR
           </button>
         </div>
       </div>
+
+      {/* Feedback Form */}
+      {showFeedbackForm && (
+        <div className="mb-8 bg-brand-surface border border-brand-orange/30 rounded-xl p-6 animate-fade-in">
+          <h3 className="text-lg font-bold text-brand-orange mb-4">Re-run Analysis with Feedback</h3>
+          <p className="text-sm text-brand-muted mb-4">Provide corrections or additional context to improve the analysis accuracy.</p>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">What was inaccurate?</label>
+              <textarea
+                value={feedbackInaccuracies}
+                onChange={(e) => setFeedbackInaccuracies(e.target.value)}
+                className="w-full h-24 bg-brand-dark border border-brand-muted rounded-lg p-3 text-white text-sm focus:outline-none focus:border-brand-orange"
+                placeholder="e.g., The client wasn't actually frustrated, they were just busy that day..."
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">Additional Context</label>
+              <textarea
+                value={feedbackContext}
+                onChange={(e) => setFeedbackContext(e.target.value)}
+                className="w-full h-24 bg-brand-dark border border-brand-muted rounded-lg p-3 text-white text-sm focus:outline-none focus:border-brand-orange"
+                placeholder="e.g., The client just got promoted and is now handling a bigger team..."
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={handleRerunWithFeedback}
+                disabled={!feedbackInaccuracies.trim() && !feedbackContext.trim()}
+                className="px-6 py-2 bg-brand-orange text-brand-dark font-bold rounded-lg hover:bg-brand-orange/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Re-run Analysis
+              </button>
+              <button
+                onClick={() => setShowFeedbackForm(false)}
+                className="px-6 py-2 text-brand-muted hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Transcripts Form */}
+      {showAddTranscripts && (
+        <div className="mb-8 bg-brand-surface border border-brand-green/30 rounded-xl p-6 animate-fade-in">
+          <h3 className="text-lg font-bold text-brand-green mb-4">Add Additional Transcript</h3>
+          <p className="text-sm text-brand-muted mb-4">Add more transcripts for deeper analysis context.</p>
+          <div className="space-y-4">
+            <textarea
+              value={additionalTranscript}
+              onChange={(e) => setAdditionalTranscript(e.target.value)}
+              className="w-full h-48 bg-brand-dark border border-brand-muted rounded-lg p-3 text-white text-sm font-mono focus:outline-none focus:border-brand-green"
+              placeholder="Paste additional transcript here..."
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={handleAddTranscript}
+                disabled={!additionalTranscript.trim()}
+                className="px-6 py-2 bg-brand-green text-brand-dark font-bold rounded-lg hover:bg-brand-green/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Add & Re-analyze
+              </button>
+              <button
+                onClick={() => setShowAddTranscripts(false)}
+                className="px-6 py-2 text-brand-muted hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Top-Level Metrics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
@@ -156,16 +277,59 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ result, data, onR
               <SignalGroup title="What Disappeared" items={result.subtleSignals.disappeared} color="text-brand-muted" />
             </div>
           </div>
+
+          {/* Sarcasm & Passive-Aggressive Detection */}
+          {result.sarcasmInstances && result.sarcasmInstances.length > 0 && (
+            <div>
+              <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <span className="text-yellow-400">!</span> Sarcasm & Passive-Aggressive Signals
+              </h3>
+              <div className="space-y-3">
+                {result.sarcasmInstances.map((instance, idx) => (
+                  <SarcasmCard key={idx} instance={instance} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Communication Styles */}
+          {result.communicationStyles && result.communicationStyles.length > 0 && (
+            <div>
+              <h3 className="text-xl font-bold text-white mb-4">Communication Styles</h3>
+              <div className="space-y-3">
+                {result.communicationStyles.map((style, idx) => (
+                  <CommunicationStyleCard key={idx} style={style} />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Right Column: Action Plan */}
-        <div>
-          <h3 className="text-xl font-bold text-white mb-4">Action Plan</h3>
-          <div className="space-y-4">
-            {result.actionPlan.map((action, idx) => (
-              <ActionCard key={idx} action={action} index={idx} />
-            ))}
+        {/* Right Column: Action Plan & Meeting Action Items */}
+        <div className="space-y-8">
+          <div>
+            <h3 className="text-xl font-bold text-white mb-4">Action Plan</h3>
+            <div className="space-y-4">
+              {result.actionPlan.map((action, idx) => (
+                <ActionCard key={idx} action={action} index={idx} />
+              ))}
+            </div>
           </div>
+
+          {/* Meeting Action Items */}
+          {result.meetingActionItems && result.meetingActionItems.length > 0 && (
+            <div>
+              <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <svg className="w-5 h-5 text-brand-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+                Meeting Action Items
+              </h3>
+              <div className="space-y-3">
+                {result.meetingActionItems.map((item, idx) => (
+                  <MeetingActionItemCard key={idx} item={item} />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
       </div>
@@ -308,5 +472,135 @@ const ActionCard: React.FC<{ action: ActionItem, index: number }> = ({ action, i
     </div>
   </div>
 );
+
+const SarcasmCard: React.FC<{ instance: SarcasmInstance }> = ({ instance }) => {
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case 'mild': return 'text-yellow-300 border-yellow-300/30 bg-yellow-300/10';
+      case 'moderate': return 'text-orange-400 border-orange-400/30 bg-orange-400/10';
+      case 'severe': return 'text-red-400 border-red-400/30 bg-red-400/10';
+      default: return 'text-brand-muted';
+    }
+  };
+
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case 'sarcasm': return 'Sarcasm';
+      case 'passive-aggressive': return 'Passive-Aggressive';
+      case 'backhanded-compliment': return 'Backhanded Compliment';
+      case 'dismissive': return 'Dismissive';
+      default: return type;
+    }
+  };
+
+  return (
+    <div className="bg-brand-surface rounded-lg border border-brand-muted p-4">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <blockquote className="text-slate-300 italic text-sm flex-grow">"{instance.quote}"</blockquote>
+        <div className="flex gap-2 flex-shrink-0">
+          <span className={`px-2 py-1 rounded text-xs font-bold ${getSeverityColor(instance.severity)}`}>
+            {instance.severity}
+          </span>
+          <span className="px-2 py-1 rounded bg-brand-dark text-xs text-brand-muted border border-brand-muted">
+            {instance.source}
+          </span>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-xs uppercase tracking-wider text-yellow-400 font-bold">{getTypeLabel(instance.type)}</span>
+      </div>
+      <p className="text-sm text-brand-cyan">{instance.underlyingMeaning}</p>
+    </div>
+  );
+};
+
+const CommunicationStyleCard: React.FC<{ style: CommunicationStyle }> = ({ style }) => {
+  const getStyleColor = (s: string) => {
+    switch (s) {
+      case 'direct': return 'text-brand-green border-brand-green/30 bg-brand-green/10';
+      case 'collaborative': return 'text-blue-400 border-blue-400/30 bg-blue-400/10';
+      case 'passive': return 'text-yellow-400 border-yellow-400/30 bg-yellow-400/10';
+      case 'defensive': return 'text-orange-400 border-orange-400/30 bg-orange-400/10';
+      case 'disengaged': return 'text-red-400 border-red-400/30 bg-red-400/10';
+      default: return 'text-brand-muted';
+    }
+  };
+
+  return (
+    <div className="bg-brand-surface rounded-lg border border-brand-muted p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="font-bold text-white">{style.participant}</h4>
+        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${getStyleColor(style.style)}`}>
+          {style.style}
+        </span>
+      </div>
+      <div className="mb-3">
+        <div className="flex flex-wrap gap-2">
+          {style.traits.map((trait, idx) => (
+            <span key={idx} className="px-2 py-1 bg-brand-dark rounded text-xs text-brand-muted border border-brand-muted/50">
+              {trait}
+            </span>
+          ))}
+        </div>
+      </div>
+      <div className="pt-3 border-t border-brand-muted/50">
+        <span className="text-xs text-brand-muted uppercase tracking-wider">Evolution:</span>
+        <p className="text-sm text-slate-300 mt-1">{style.evolution}</p>
+      </div>
+    </div>
+  );
+};
+
+const MeetingActionItemCard: React.FC<{ item: MeetingActionItem }> = ({ item }) => {
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed': return 'text-brand-green border-brand-green/30 bg-brand-green/10';
+      case 'pending': return 'text-yellow-400 border-yellow-400/30 bg-yellow-400/10';
+      case 'unclear': return 'text-brand-muted border-brand-muted/30 bg-brand-muted/10';
+      case 'dropped': return 'text-red-400 border-red-400/30 bg-red-400/10';
+      default: return 'text-brand-muted';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'completed': return '✓';
+      case 'pending': return '○';
+      case 'unclear': return '?';
+      case 'dropped': return '✗';
+      default: return '•';
+    }
+  };
+
+  return (
+    <div className="bg-brand-surface rounded-lg border border-brand-muted p-4">
+      <div className="flex items-start gap-3">
+        <span className={`text-lg ${getStatusColor(item.status)}`}>{getStatusIcon(item.status)}</span>
+        <div className="flex-grow">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-white font-medium text-sm">{item.item}</p>
+            <div className="flex gap-2 flex-shrink-0">
+              <span className={`px-2 py-1 rounded text-xs font-bold ${getStatusColor(item.status)}`}>
+                {item.status}
+              </span>
+              <span className="px-2 py-1 rounded bg-brand-dark text-xs text-brand-muted border border-brand-muted">
+                {item.source}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs text-brand-muted">Owner:</span>
+            <span className={`text-xs font-bold ${item.owner === 'agency' ? 'text-brand-cyan' : 'text-brand-orange'}`}>
+              {item.owner}
+            </span>
+          </div>
+          {item.notes && (
+            <p className="text-xs text-slate-400 mt-2 italic">{item.notes}</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default AnalysisDashboard;

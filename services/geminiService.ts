@@ -3,13 +3,28 @@ import { Type } from "@google/genai";
 import { TranscriptData, AnalysisResult, ChatMessage } from "../types";
 
 const SYSTEM_INSTRUCTION = `
-You are a client relationship analyst specializing in detecting subtle emotional and psychological signals that indicate relationship health in agency-client relationships. 
+You are a client relationship analyst specializing in detecting subtle emotional and psychological signals that indicate relationship health in agency-client relationships.
 Your job is to analyze meeting transcripts and identify warning signs that someone focused purely on tactics and metrics would miss.
 You help agency account managers understand what their clients are REALLY thinking and feeling.
 
 You will be provided with three transcripts (Oldest, Middle, Recent) and context about the client.
 Analyze the trajectory across these three points in time.
 Be direct, honest, and psychological in your assessment. Don't sugarcoat.
+
+SARCASM & PASSIVE-AGGRESSIVE DETECTION:
+Pay special attention to sarcasm, passive-aggressive comments, backhanded compliments, and dismissive language. These are often the most telling signs of underlying dissatisfaction. Look for:
+- Saying "fine" or "great" in a context that suggests the opposite
+- Exaggerated praise that feels hollow or mocking
+- Comments that seem positive but carry undertones of frustration
+- Dismissive phrases like "whatever you think is best" when disengaged
+- Backhanded compliments that criticize while appearing to praise
+- Eye-roll moments even in text (phrases like "sure, let's try that again")
+
+COMMUNICATION STYLE ANALYSIS:
+Analyze each key participant's communication style and how it evolves across the meetings. Look for shifts from collaborative to defensive, or from engaged to disengaged.
+
+ACTION ITEM TRACKING:
+Extract any commitments, follow-ups, or promises made during the meetings and track whether they appear to have been completed in subsequent transcripts.
 `;
 
 const ANALYSIS_SCHEMA: Schema = {
@@ -72,8 +87,52 @@ const ANALYSIS_SCHEMA: Schema = {
         required: ["action", "why", "how"],
       },
     },
+    meetingActionItems: {
+      type: Type.ARRAY,
+      description: "Action items, commitments, and follow-ups extracted from the transcripts",
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          item: { type: Type.STRING, description: "The specific action item or commitment" },
+          owner: { type: Type.STRING, description: "Who is responsible: 'agency' or 'client'" },
+          source: { type: Type.STRING, enum: ["oldest", "middle", "recent"], description: "Which transcript this came from" },
+          status: { type: Type.STRING, enum: ["completed", "pending", "unclear", "dropped"], description: "Current status based on subsequent transcripts" },
+          notes: { type: Type.STRING, description: "Context about the status or why it matters" },
+        },
+        required: ["item", "owner", "source", "status", "notes"],
+      },
+    },
+    communicationStyles: {
+      type: Type.ARRAY,
+      description: "Communication style analysis for key participants",
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          participant: { type: Type.STRING, description: "Name or role of the participant" },
+          style: { type: Type.STRING, enum: ["direct", "passive", "collaborative", "defensive", "disengaged"] },
+          traits: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Specific communication traits observed" },
+          evolution: { type: Type.STRING, description: "How their communication style changed across the transcripts" },
+        },
+        required: ["participant", "style", "traits", "evolution"],
+      },
+    },
+    sarcasmInstances: {
+      type: Type.ARRAY,
+      description: "Detected instances of sarcasm, passive-aggressive comments, or dismissive language",
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          quote: { type: Type.STRING, description: "The exact quote from the transcript" },
+          source: { type: Type.STRING, enum: ["oldest", "middle", "recent"] },
+          type: { type: Type.STRING, enum: ["sarcasm", "passive-aggressive", "backhanded-compliment", "dismissive"] },
+          underlyingMeaning: { type: Type.STRING, description: "What they really meant" },
+          severity: { type: Type.STRING, enum: ["mild", "moderate", "severe"] },
+        },
+        required: ["quote", "source", "type", "underlyingMeaning", "severity"],
+      },
+    },
   },
-  required: ["trajectoryAnalysis", "subtleSignals", "criticalMoments", "bottomLine", "actionPlan"],
+  required: ["trajectoryAnalysis", "subtleSignals", "criticalMoments", "bottomLine", "actionPlan", "meetingActionItems", "communicationStyles", "sarcasmInstances"],
 };
 
 export const analyzeRelationship = async (data: TranscriptData): Promise<AnalysisResult> => {
@@ -96,22 +155,50 @@ export const analyzeRelationship = async (data: TranscriptData): Promise<Analysi
     }
     contextSection += `Additional User Notes: ${data.context || "None provided."}\n`;
 
+    // Build additional transcripts section if provided
+    let additionalTranscriptsSection = "";
+    if (data.additionalTranscripts && data.additionalTranscripts.length > 0) {
+      additionalTranscriptsSection = "\nADDITIONAL TRANSCRIPTS (for deeper context):\n";
+      data.additionalTranscripts.forEach((transcript, idx) => {
+        additionalTranscriptsSection += `\nADDITIONAL TRANSCRIPT ${idx + 1}:\n${transcript}\n`;
+      });
+    }
+
+    // Build feedback section if this is a re-run
+    let feedbackSection = "";
+    if (data.feedback) {
+      feedbackSection = "\nPOD LEADER FEEDBACK (incorporate this into your analysis):\n";
+      if (data.feedback.inaccuracies) {
+        feedbackSection += `Previous analysis inaccuracies to correct: ${data.feedback.inaccuracies}\n`;
+      }
+      if (data.feedback.additionalContext) {
+        feedbackSection += `Additional context: ${data.feedback.additionalContext}\n`;
+      }
+      if (data.feedback.focusAreas && data.feedback.focusAreas.length > 0) {
+        feedbackSection += `Focus areas for this analysis: ${data.feedback.focusAreas.join(", ")}\n`;
+      }
+    }
+
     // Construct the prompt content
     const promptText = `
       Here is the data for analysis:
-      
+
       ${contextSection}
-      
+
       TRANSCRIPT 1 (OLDEST - 3 meetings ago):
       ${data.oldest}
-      
+
       TRANSCRIPT 2 (MIDDLE - 2 meetings ago):
       ${data.middle}
-      
+
       TRANSCRIPT 3 (RECENT - Most recent meeting):
       ${data.recent}
-      
+      ${additionalTranscriptsSection}
+      ${feedbackSection}
+
       Analyze the trajectory and provide the psychological report based on the schema.
+
+      Important: Pay special attention to sarcasm, passive-aggressive comments, and communication style shifts. Extract all action items and track their status across meetings.
     `;
 
     const response = await ai.models.generateContent({
